@@ -1,0 +1,35 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.vite/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# SQLite database (created automatically on first start)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Project workspaces the agent builds in
+workspaces/
+
+*.log
+.DS_Store
+Thumbs.db
+
+# End-to-end test artifacts
+e2e/.auth/
+e2e/.results/
+e2e/.report/
+e2e/.screenshots/
+e2e/.workspaces/
+e2e/.workspaces-guide/
+e2e/.results-guide/

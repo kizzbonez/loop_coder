@@ -1,0 +1,320 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens (light is the base, dark overrides)
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface-2: #f1f3f8;
+  --surface-3: #e8ebf3;
+  --line: #e2e6ef;
+  --line-strong: #cfd5e2;
+  --fg: #0f1729;
+  --muted: #5b6478;
+  --subtle: #8a93a8;
+  --accent: #6d4aff;
+  --accent-2: #06b6d4;
+  --accent-soft: rgb(109 74 255 / 0.1);
+  --accent-fg: #ffffff;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --info: #0284c7;
+  --ring: rgb(109 74 255 / 0.45);
+  --shadow: 0 1px 2px rgb(15 23 41 / 0.06), 0 4px 16px -4px rgb(15 23 41 / 0.08);
+  --shadow-lg: 0 12px 40px -12px rgb(15 23 41 / 0.25);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0a0c11;
+  --surface: #11141b;
+  --surface-2: #171b24;
+  --surface-3: #1f2430;
+  --line: rgb(255 255 255 / 0.07);
+  --line-strong: rgb(255 255 255 / 0.13);
+  --fg: #e8eaf0;
+  --muted: #9aa2b5;
+  --subtle: #697185;
+  --accent: #8b6dff;
+  --accent-2: #22d3ee;
+  --accent-soft: rgb(139 109 255 / 0.14);
+  --accent-fg: #ffffff;
+  --danger: #f05252;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+  --ring: rgb(139 109 255 / 0.5);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 20px -6px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 20px 50px -12px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg font-sans text-[14px] text-fg antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+@layer components {
+  .brand-gradient {
+    background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  }
+  .brand-text {
+    background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-card;
+  }
+  .field-input {
+    @apply w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-fg placeholder:text-subtle transition outline-none focus:border-accent focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-60;
+  }
+  /* Animated gradient ring around a work item the agent is working on. */
+  .agent-working {
+    position: relative;
+    isolation: isolate;
+  }
+  .agent-working::before {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: conic-gradient(from var(--angle), var(--accent), var(--accent-2), var(--accent));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: spin-angle 3s linear infinite;
+    z-index: -1;
+  }
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes spin-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* Markdown content */
+.prose-lc {
+  @apply text-sm leading-relaxed text-fg;
+}
+.prose-lc > * + * {
+  margin-top: 0.6em;
+}
+.prose-lc h1,
+.prose-lc h2,
+.prose-lc h3,
+.prose-lc h4 {
+  @apply font-semibold text-fg;
+}
+.prose-lc h1 {
+  @apply text-lg;
+}
+.prose-lc h2 {
+  @apply text-base;
+}
+.prose-lc ul {
+  @apply list-disc pl-5;
+}
+.prose-lc ol {
+  @apply list-decimal pl-5;
+}
+.prose-lc li + li {
+  margin-top: 0.2em;
+}
+.prose-lc a {
+  @apply text-accent underline underline-offset-2;
+}
+.prose-lc code {
+  @apply rounded bg-surface-3 px-1 py-0.5 font-mono text-[12px];
+}
+.prose-lc pre {
+  @apply overflow-x-auto rounded-lg border border-line bg-surface-2 p-3 font-mono text-[12px];
+}
+.prose-lc pre code {
+  @apply bg-transparent p-0;
+}
+.prose-lc blockquote {
+  @apply border-l-2 border-line-strong pl-3 text-muted;
+}
+.prose-lc table {
+  @apply w-full border-collapse text-[13px];
+}
+.prose-lc th,
+.prose-lc td {
+  @apply border border-line px-2 py-1 text-left;
+}
+.prose-lc th {
+  @apply bg-surface-2 font-medium;
+}
+.prose-lc input[type='checkbox'] {
+  @apply mr-1.5 align-middle;
+}
+
+/* In-app user guide (docs/USER_GUIDE.md). In a layer so utilities on figures/callouts win. */
+@layer components {
+  .guide {
+    @apply text-[15px] leading-[1.75] text-muted;
+  }
+  .guide > * + * {
+    margin-top: 1.1em;
+  }
+  .guide h2 {
+    @apply mt-14 text-2xl font-semibold tracking-tight text-fg;
+  }
+  .guide h3 {
+    @apply relative mt-12 mb-1 pl-4 text-xl font-semibold tracking-tight text-fg;
+  }
+  .guide h3::before {
+    content: '';
+    background-image: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+    @apply absolute top-1 bottom-1 left-0 w-1 rounded-full;
+  }
+  .guide h4 {
+    @apply mt-8 text-base font-semibold text-fg;
+  }
+  .guide strong {
+    @apply font-semibold text-fg;
+  }
+  .guide a {
+    @apply font-medium text-accent underline decoration-accent/30 underline-offset-[3px] transition hover:decoration-accent;
+  }
+  .guide code {
+    @apply rounded-md border border-line bg-surface-2 px-1.5 py-px font-mono text-[0.85em] text-fg;
+  }
+
+  /* Bulleted lists: small accent dots. */
+  .guide ul {
+    @apply space-y-2 pl-1;
+  }
+  .guide ul > li {
+    @apply relative pl-6;
+  }
+  .guide ul > li::before {
+    content: '';
+    @apply absolute top-[0.7em] left-1.5 size-1.5 rounded-full bg-accent/60;
+  }
+
+  /* Numbered lists are steps: a numbered badge on a connecting rail. */
+  .guide ol {
+    counter-reset: step;
+    @apply space-y-0;
+  }
+  .guide ol > li {
+    counter-increment: step;
+    @apply relative pb-4 pl-11;
+  }
+  .guide ol > li::before {
+    content: counter(step);
+    @apply absolute top-0.5 left-0 flex size-7 items-center justify-center rounded-full border border-accent/30 bg-accent-soft text-[13px] font-semibold text-accent tabular-nums;
+  }
+  .guide ol > li:not(:last-child)::after {
+    content: '';
+    @apply absolute top-9 bottom-0.5 left-3.5 w-px bg-line-strong;
+  }
+  .guide li > ul,
+  .guide li > ol {
+    @apply mt-2;
+  }
+  .guide li > p + p {
+    @apply mt-2;
+  }
+
+  .guide table {
+    @apply w-full border-collapse text-[14px];
+  }
+  .guide th,
+  .guide td {
+    @apply border-b border-line px-4 py-2.5 text-left align-top;
+  }
+  .guide th {
+    @apply bg-surface-2 text-xs font-semibold tracking-wide text-fg uppercase;
+  }
+  .guide tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .guide tbody tr:hover td {
+    @apply bg-surface-2/50;
+  }
+  .guide td:first-child {
+    @apply font-medium text-fg;
+  }
+  .guide .guide-callout {
+    @apply text-[14px];
+  }
+  .guide .guide-callout p + p {
+    @apply mt-2;
+  }
+  .guide hr {
+    @apply hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-working::before {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

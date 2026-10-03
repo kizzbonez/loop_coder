@@ -1,0 +1,15 @@
+{
+  "name": "@loop/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:only": "playwright test",
+    "screenshots": "node --env-file-if-exists=guide.env run.mjs --config playwright.guide.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4"
+  }
+}

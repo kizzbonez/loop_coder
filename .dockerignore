@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.vite
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+data
+workspaces
+e2e
+**/*.log
+**/*.db
+**/*.db-*

@@ -1,0 +1,39 @@
+{
+  "name": "loop-coder",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Agile Kanban web app with an MCP server that an AI coding agent (Claude Code, Cursor, VS Code…) works through until the board is done.",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "e2e"
+  ],
+  "scripts": {
+    "up": "node scripts/compose.mjs up -d --build",
+    "down": "node scripts/compose.mjs down",
+    "logs": "node scripts/compose.mjs logs -f api",
+    "setup-code": "node scripts/compose.mjs logs api",
+    "build": "npm run build -w @loop/shared && npm run build -w @loop/api && npm run build -w @loop/web",
+    "build:shared": "npm run build -w @loop/shared",
+    "typecheck": "npm run build:shared && npm run typecheck -w @loop/api && npm run typecheck -w @loop/web",
+    "test": "npm run build:shared && npm run test -w @loop/api && npm run test -w @loop/web",
+    "test:coverage": "npm run build:shared && npm run test:coverage -w @loop/api",
+    "e2e": "npm run test -w @loop/e2e",
+    "docs:screenshots": "npm run screenshots -w @loop/e2e",
+    "dev:api": "npm run build:shared && npm run dev -w @loop/api",
+    "dev:web": "npm run dev -w @loop/web",
+    "db:generate": "npm run db:generate -w @loop/api",
+    "release": "node scripts/release.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true,
+    "better-sqlite3": false
+  }
+}

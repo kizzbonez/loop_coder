@@ -1,0 +1,120 @@
+# Loop Coder: docker compose up -d --build
+# Then open http://localhost:8080 and follow the setup wizard
+# (setup code: docker compose logs api | grep -i "setup code").
+
+name: loop-coder
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  api:
+    <<: *hardening
+    image: loop-coder-api:${APP_VERSION:-0.1.0}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-}
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Set when served from a fixed public URL (enables strict CSRF origin checks).
+      APP_ORIGIN: ${APP_ORIGIN:-}
+      # auto = Secure cookies when the request arrives over HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      # Optional fixed setup code; otherwise a random one is printed to the logs.
+      SETUP_CODE: ${SETUP_CODE:-}
+    volumes:
+      # SQLite database: created automatically on first start.
+      - loop_data:/data
+      # Project code written by Claude Code on the host, shown read-only in the file browser.
+      - ${WORKSPACES_HOST_DIR:-./workspaces}:/workspaces:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  web:
+    <<: *hardening
+    image: loop-coder-web:${APP_VERSION:-0.1.0}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+        GIT_SHA: ${GIT_SHA:-unknown}
+    environment:
+      # Sites allowed to embed the UI in an iframe (see .env.example). Default: none.
+      FRAME_ANCESTORS: ${FRAME_ANCESTORS:-none}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # Bound to localhost by default. Publish through a tunnel or TLS proxy, not an open port.
+      - "${BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      backend: {}
+      edge:
+        aliases:
+          - loop-coder-web
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  # Optional: a dedicated Cloudflare Tunnel connector (skip it if you already run cloudflared;
+  # attach your existing container to the "loop-coder-edge" network instead, see docs/DEPLOY.md).
+  #   1. Zero Trust → Networks → Tunnels → create a tunnel, put its token in .env
+  #      (CLOUDFLARE_TUNNEL_TOKEN=...), add a public hostname → http://loop-coder-web:8080
+  #   2. docker compose --profile tunnel up -d
+  tunnel:
+    <<: *hardening
+    image: cloudflare/cloudflared:latest
+    profiles:
+      - tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      web:
+        condition: service_healthy
+    read_only: true
+    networks:
+      - edge
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+volumes:
+  loop_data:
+
+networks:
+  # API ↔ web only. Internal: no route to the internet and unreachable from tunnels.
+  backend:
+    internal: true
+  # Entry point for the UI. A Cloudflare Tunnel connector joins this network and can
+  # reach nothing but nginx (alias loop-coder-web).
+  edge:
+    name: ${EDGE_NETWORK:-loop-coder-edge}
