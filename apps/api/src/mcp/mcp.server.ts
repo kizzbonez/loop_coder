@@ -200,7 +200,7 @@ export function buildMcpServer(actor: Actor): McpServer {
         const p = resolveProject(actor, project, 'editor');
         const pkg = getNextWork(actor, p.id);
         if (pkg.kind === 'task') {
-          touch(p.id, { taskId: pkg.task.id, roleKey: pkg.role.key, activity: `Working on ${pkg.task.key} as ${pkg.role.name}` });
+          touch(p.id, { taskId: pkg.task.id, roleKey: pkg.role.key, ceremony: null, activity: `Working on ${pkg.task.key} as ${pkg.role.name}` });
           const detail = formatTaskDetail(pkg.task, {
             columnName: pkg.column.name,
             roleName: pkg.role.name,
@@ -210,10 +210,10 @@ export function buildMcpServer(actor: Actor): McpServer {
         }
         if (pkg.kind === 'ceremony') {
           const label = { kickoff: 'Project kickoff', sprint_planning: 'Sprint planning', sprint_review: 'Sprint review' }[pkg.ceremony];
-          touch(p.id, { taskId: null, roleKey: pkg.role.key, activity: `${label} as ${pkg.role.name}` });
+          touch(p.id, { taskId: null, roleKey: pkg.role.key, ceremony: pkg.ceremony, activity: `${label} as ${pkg.role.name}` });
           return pkg.instructions;
         }
-        touch(p.id, { taskId: null, roleKey: null, activity: pkg.message });
+        touch(p.id, { taskId: null, roleKey: null, ceremony: null, activity: pkg.message });
         return `STATUS: ${pkg.status.toUpperCase()}\n${pkg.message}`;
       }),
   );
@@ -504,7 +504,7 @@ export function buildMcpServer(actor: Actor): McpServer {
       run(() => {
         const p = resolveProject(actor, project, 'editor');
         completeKickoff(actor, p.id, summary);
-        touch(p.id, { taskId: null, activity: 'Completed the project kickoff' });
+        touch(p.id, { taskId: null, ceremony: null, activity: 'Completed the project kickoff' });
         return 'Kickoff complete. Continue with get_next_work.';
       }),
   );
@@ -525,7 +525,7 @@ export function buildMcpServer(actor: Actor): McpServer {
       run(() => {
         const p = resolveProject(actor, project, 'editor');
         const r = startSprintFromPlanning(actor, p.id, { goal, items, name });
-        touch(p.id, { taskId: null, activity: `Started ${r.sprintName}` });
+        touch(p.id, { taskId: null, ceremony: null, activity: `Started ${r.sprintName}` });
         const warning = r.points > r.capacity ? `\nWarning: ${r.points} points committed exceeds the capacity of ${r.capacity}.` : '';
         return `${r.sprintName} started with ${r.committed.length} item(s), ${r.points} points: ${r.committed.join(', ')}.${warning}\nContinue with get_next_work.`;
       }),
@@ -546,7 +546,7 @@ export function buildMcpServer(actor: Actor): McpServer {
       run(() => {
         const p = resolveProject(actor, project, 'editor');
         const r = completeSprintFromReview(actor, p.id, { reviewNotes: review_notes, retroNotes: retro_notes });
-        touch(p.id, { taskId: null, activity: `Completed ${r.sprintName}` });
+        touch(p.id, { taskId: null, ceremony: null, activity: `Completed ${r.sprintName}` });
         return `${r.sprintName} completed (${r.done}/${r.total} items done). Continue with get_next_work.`;
       }),
   );

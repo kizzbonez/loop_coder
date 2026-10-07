@@ -1,5 +1,5 @@
-import { and, desc, eq, lt, sql } from 'drizzle-orm';
-import { GENERIC_AGENT_NAME, type ActivityDTO } from '@loop/shared';
+import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { CEREMONIES, COLUMN_KINDS, GENERIC_AGENT_NAME, type ActivityDTO, type Ceremony, type ColumnKind } from '@loop/shared';
 import { db, type Executor } from '../../db/client';
 import { activities, users, type ActivityRow } from '../../db/schema';
 import type { Actor } from '../../lib/actor';
@@ -28,7 +28,17 @@ export function actorLabel(actor: Actor | null, roleName?: string | null): strin
   return actor.name;
 }
 
+/** A stage kind stored in an activity's data, or null; never trusts the stored value blindly. */
+function kindOf(value: unknown): ColumnKind | null {
+  return typeof value === 'string' && (COLUMN_KINDS as readonly string[]).includes(value) ? (value as ColumnKind) : null;
+}
+
+function ceremonyOf(value: unknown): Ceremony | null {
+  return typeof value === 'string' && (CEREMONIES as readonly string[]).includes(value) ? (value as Ceremony) : null;
+}
+
 function toDTO(row: ActivityRow, actorName: string | null): ActivityDTO {
+  const data = row.data && typeof row.data === 'object' ? (row.data as Record<string, unknown>) : null;
   return {
     id: row.id,
     projectId: row.projectId,
@@ -40,6 +50,9 @@ function toDTO(row: ActivityRow, actorName: string | null): ActivityDTO {
     roleKey: row.roleKey,
     action: row.action,
     message: row.message,
+    fromKind: kindOf(data?.from),
+    toKind: kindOf(data?.to),
+    ceremony: ceremonyOf(data?.ceremony),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -64,10 +77,12 @@ export function recordActivity(exec: Executor, batch: EventBatch, input: Activit
   batch.add(input.projectId, { type: 'activity.created', activity: toDTO(row, input.actor?.name ?? null) });
 }
 
-export function listActivity(projectId: string, limit: number, before?: Date): ActivityDTO[] {
-  const where = before
-    ? and(eq(activities.projectId, projectId), lt(activities.createdAt, before))
-    : eq(activities.projectId, projectId);
+export function listActivity(projectId: string, limit: number, before?: Date, actions?: readonly string[]): ActivityDTO[] {
+  const where = and(
+    eq(activities.projectId, projectId),
+    before ? lt(activities.createdAt, before) : undefined,
+    actions ? inArray(activities.action, [...actions]) : undefined,
+  );
   return db
     .select({ row: activities, actorName: users.name })
     .from(activities)

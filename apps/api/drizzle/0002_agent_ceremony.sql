@@ -1,0 +1,1 @@
+ALTER TABLE `agent_sessions` ADD `current_ceremony` text;

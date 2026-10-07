@@ -84,6 +84,20 @@ export type RoleSource = (typeof ROLE_SOURCES)[number];
 export const CEREMONIES = ['kickoff', 'sprint_planning', 'sprint_review'] as const;
 export type Ceremony = (typeof CEREMONIES)[number];
 
+/** Activity actions that change where work or agents are in the SDLC flow (the Flow view). */
+export const FLOW_ACTIONS = [
+  'task.created',
+  'task.moved',
+  'task.escalated',
+  'task.started',
+  'task.refined',
+  'ceremony.started',
+  'project.kickoff_completed',
+  'sprint.started',
+  'sprint.completed',
+] as const;
+export type FlowAction = (typeof FLOW_ACTIONS)[number];
+
 /** Keys of the built-in agent roles that are seeded on first start. */
 export const SYSTEM_ROLE_KEYS = [
   'project_manager',

@@ -57,12 +57,22 @@ describe('applyProjectEvent', () => {
     expect(qc.getQueryData<ActivityDTO[]>(keys.activity(P))!.map((a) => a.id)).toEqual(['a2', 'a1']);
   });
 
+  it('keeps the flow history live with flow events only', () => {
+    qc.setQueryData(keys.flow(P), [{ id: 'f1', action: 'task.moved' }] as ActivityDTO[]);
+    applyProjectEvent(qc, P, { type: 'activity.created', activity: { id: 'f2', action: 'task.moved' } as ActivityDTO });
+    applyProjectEvent(qc, P, { type: 'activity.created', activity: { id: 'f2', action: 'task.moved' } as ActivityDTO });
+    applyProjectEvent(qc, P, { type: 'activity.created', activity: { id: 'x', action: 'remark.created' } as ActivityDTO });
+    expect(qc.getQueryData<ActivityDTO[]>(keys.flow(P))!.map((a) => a.id)).toEqual(['f2', 'f1']);
+  });
+
   it('updates agent presence, project fields and columns', () => {
-    applyProjectEvent(qc, P, { type: 'agent.presence', agent: { online: true, currentActivity: 'Testing' } as ProjectDetailDTO['agent'] });
+    const agents = [{ id: 's1', agentName: 'Cursor' }] as ProjectDetailDTO['agents'];
+    applyProjectEvent(qc, P, { type: 'agent.presence', agent: { online: true, currentActivity: 'Testing' } as ProjectDetailDTO['agent'], agents });
     applyProjectEvent(qc, P, { type: 'project.updated', project: { agentState: 'paused' } as ProjectDetailDTO });
     applyProjectEvent(qc, P, { type: 'columns.updated', columns: [{ id: 'c1' }] as ProjectDetailDTO['columns'] });
     const project = qc.getQueryData<ProjectDetailDTO>(keys.project(P))!;
     expect(project.agent.online).toBe(true);
+    expect(project.agents).toEqual(agents);
     expect(project.agentState).toBe('paused');
     expect(project.columns).toHaveLength(1);
     expect(project.name).toBe('Shop');

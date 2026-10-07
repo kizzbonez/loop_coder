@@ -1,5 +1,6 @@
 import { Router, type Request } from 'express';
 import {
+  FLOW_ACTIONS,
   createProjectSchema,
   createSprintSchema,
   createTaskSchema,
@@ -77,7 +78,10 @@ export function projectsRoutes(): Router {
     requireProjectAccess(actor, projectId, 'viewer');
     const before = queryString(req.query.before);
     const beforeDate = before && !Number.isNaN(Date.parse(before)) ? new Date(before) : undefined;
-    res.json({ items: listActivity(projectId, queryInt(req.query.limit, 50, 1, 200), beforeDate) });
+    // ?kind=flow returns only the events that move work or agents through the SDLC (Flow view replay).
+    const flow = req.query.kind === 'flow';
+    const limit = queryInt(req.query.limit, 50, 1, flow ? 1000 : 200);
+    res.json({ items: listActivity(projectId, limit, beforeDate, flow ? FLOW_ACTIONS : undefined) });
   });
 
   router.get('/:id/agent-sessions', (req, res) => {

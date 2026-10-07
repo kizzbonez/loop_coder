@@ -2,6 +2,7 @@ import type {
   AccessLevel,
   AgentState,
   AuthorType,
+  Ceremony,
   ColumnKind,
   ItemType,
   Priority,
@@ -139,13 +140,33 @@ export interface AgentPresenceDTO {
   currentTaskId: string | null;
   currentTaskKey: string | null;
   currentRoleKey: string | null;
+  /** Scrum ceremony the agent is running, if any. */
+  currentCeremony: Ceremony | null;
+  currentActivity: string | null;
+}
+
+/** One agent connection (MCP token) active on a project right now. */
+export interface OnlineAgentDTO {
+  /** Agent session id; stable while the agent keeps working. */
+  id: string;
+  agentName: string;
+  clientName: string | null;
+  userName: string | null;
+  lastSeenAt: string;
+  currentTaskId: string | null;
+  currentTaskKey: string | null;
+  currentRoleKey: string | null;
+  currentCeremony: Ceremony | null;
   currentActivity: string | null;
 }
 
 export interface ProjectDetailDTO extends ProjectDTO {
   columns: ColumnDTO[];
   activeSprint: SprintDTO | null;
+  /** The most recently active agent (online or not). */
   agent: AgentPresenceDTO;
+  /** Every agent online on this project, most recent first. */
+  agents: OnlineAgentDTO[];
 }
 
 export interface TaskClaimDTO {
@@ -241,6 +262,12 @@ export interface ActivityDTO {
   roleKey: string | null;
   action: string;
   message: string;
+  /** Stage the work item left, for moves (null when unknown or not a move). */
+  fromKind: ColumnKind | null;
+  /** Stage the work item entered, for moves and newly created items. */
+  toKind: ColumnKind | null;
+  /** Ceremony that started, for `ceremony.started`. */
+  ceremony: Ceremony | null;
   createdAt: string;
 }
 
@@ -343,7 +370,7 @@ export type ProjectEvent =
   | { type: 'columns.updated'; columns: ColumnDTO[] }
   | { type: 'sprint.upserted'; sprint: SprintDTO }
   | { type: 'activity.created'; activity: ActivityDTO }
-  | { type: 'agent.presence'; agent: AgentPresenceDTO };
+  | { type: 'agent.presence'; agent: AgentPresenceDTO; agents: OnlineAgentDTO[] };
 
 export interface ApiErrorBody {
   error: {

@@ -327,6 +327,7 @@ export function insertTask(
     taskKey: key,
     roleKey,
     message: `${actorLabel(actor, roleName(roleKey, tx))} created ${key} "${row.title}"`,
+    data: { to: column.kind },
   });
   publishTask(tx, batch, row.id);
   syncEpic(tx, batch, row.parentId, columns);

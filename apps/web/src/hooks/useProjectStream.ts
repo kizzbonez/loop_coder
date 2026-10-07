@@ -1,11 +1,15 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import type { ActivityDTO, ProjectDetailDTO, ProjectEvent, TaskDetailDTO, TaskDTO } from '@loop/shared';
-import { keys, upsertTaskInCache } from '../lib/queries';
+import { FLOW_ACTIONS, type ActivityDTO, type ProjectDetailDTO, type ProjectEvent, type TaskDetailDTO, type TaskDTO } from '@loop/shared';
+import { FLOW_HISTORY_LIMIT, keys, upsertTaskInCache } from '../lib/queries';
 
 export type StreamStatus = 'connecting' | 'live' | 'reconnecting';
 
 const MAX_ACTIVITY = 300;
+const FLOW = new Set<string>(FLOW_ACTIONS);
+
+const prepend = (activity: ActivityDTO, max: number) => (old: ActivityDTO[] | undefined) =>
+  old && !old.some((a) => a.id === activity.id) ? [activity, ...old].slice(0, max) : old;
 
 /** Apply one realtime event to the React Query cache. Exported for unit tests. */
 export function applyProjectEvent(qc: QueryClient, projectId: string, event: ProjectEvent): void {
@@ -44,12 +48,11 @@ export function applyProjectEvent(qc: QueryClient, projectId: string, event: Pro
       });
       break;
     case 'activity.created':
-      qc.setQueryData<ActivityDTO[]>(keys.activity(projectId), (old) =>
-        old && !old.some((a) => a.id === event.activity.id) ? [event.activity, ...old].slice(0, MAX_ACTIVITY) : old,
-      );
+      qc.setQueryData<ActivityDTO[]>(keys.activity(projectId), prepend(event.activity, MAX_ACTIVITY));
+      if (FLOW.has(event.activity.action)) qc.setQueryData<ActivityDTO[]>(keys.flow(projectId), prepend(event.activity, FLOW_HISTORY_LIMIT));
       break;
     case 'agent.presence':
-      qc.setQueryData<ProjectDetailDTO>(keys.project(projectId), (old) => (old ? { ...old, agent: event.agent } : old));
+      qc.setQueryData<ProjectDetailDTO>(keys.project(projectId), (old) => (old ? { ...old, agent: event.agent, agents: event.agents } : old));
       break;
   }
 }

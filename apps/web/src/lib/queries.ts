@@ -61,6 +61,7 @@ export const keys = {
   sprints: (projectId: string) => ['project', projectId, 'sprints'] as const,
   burndown: (sprintId: string) => ['sprint', sprintId, 'burndown'] as const,
   activity: (projectId: string) => ['project', projectId, 'activity'] as const,
+  flow: (projectId: string) => ['project', projectId, 'flow'] as const,
   agentSessions: (projectId: string) => ['project', projectId, 'agent-sessions'] as const,
   files: (projectId: string, path: string) => ['project', projectId, 'files', path] as const,
   file: (projectId: string, path: string) => ['project', projectId, 'file', path] as const,
@@ -212,6 +213,14 @@ export const useActivity = (projectId: string, limit = 100) =>
   useQuery({
     queryKey: keys.activity(projectId),
     queryFn: async () => (await api.get<Items<ActivityDTO>>(`/projects/${projectId}/activity?limit=${limit}`)).items,
+  });
+
+/** Events that move work or agents through the SDLC, newest first; kept live by the project stream. */
+export const FLOW_HISTORY_LIMIT = 1000;
+export const useFlowActivity = (projectId: string) =>
+  useQuery({
+    queryKey: keys.flow(projectId),
+    queryFn: async () => (await api.get<Items<ActivityDTO>>(`/projects/${projectId}/activity?kind=flow&limit=${FLOW_HISTORY_LIMIT}`)).items,
   });
 
 export const useAgentSessions = (projectId: string) =>

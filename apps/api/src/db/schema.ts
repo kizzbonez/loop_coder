@@ -14,6 +14,7 @@ import {
 import {
   AGENT_STATES,
   AUTHOR_TYPES,
+  CEREMONIES,
   COLUMN_KINDS,
   ITEM_TYPES,
   PRIORITIES,
@@ -381,6 +382,8 @@ export const agentSessions = sqliteTable(
     itemsCompleted: integer('items_completed').notNull().default(0),
     currentTaskId: text('current_task_id').references(() => tasks.id, { onDelete: 'set null' }),
     currentRoleKey: text('current_role_key'),
+    /** Scrum ceremony being run (kickoff / sprint_planning / sprint_review), if any. */
+    currentCeremony: text('current_ceremony', { enum: CEREMONIES }),
     currentActivity: text('current_activity'),
   },
   (t) => [

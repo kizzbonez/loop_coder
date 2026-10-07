@@ -28,7 +28,7 @@ import { now } from '../../lib/time';
 import { EventBatch } from '../../realtime/bus';
 import { actorLabel, recordActivity } from '../activity/activity.service';
 import { audit } from '../audit/audit.service';
-import { getPresence } from '../presence/presence.service';
+import { getPresence, listOnlineAgents } from '../presence/presence.service';
 import { DEFAULT_DEFINITION_OF_DONE, DEFAULT_DEFINITION_OF_READY } from '../roles/default-roles';
 import { getRoleById, getRoleByKey } from '../roles/roles.service';
 import { getSettings } from '../settings/settings.service';
@@ -176,6 +176,7 @@ export function getProjectDetail(actor: Actor, projectId: string): ProjectDetail
     columns: getColumns(projectId).map(toColumnDTO),
     activeSprint: getActiveSprintDTO(projectId),
     agent: getPresence(projectId),
+    agents: listOnlineAgents(projectId),
   };
 }
 

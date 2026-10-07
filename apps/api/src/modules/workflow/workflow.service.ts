@@ -170,7 +170,27 @@ function ceremonyAvailable(project: ProjectRow, claimant: string, t: Date): bool
   );
 }
 
-function claimCeremony(tx: Tx, project: ProjectRow, claimant: string): void {
+const CEREMONY_NAMES: Record<Ceremony, string> = {
+  kickoff: 'the project kickoff',
+  sprint_planning: 'sprint planning',
+  sprint_review: 'the sprint review',
+};
+
+/** Claim a ceremony for this agent; a new claim is recorded so the Flow view can follow it. */
+function claimCeremony(tx: Tx, batch: EventBatch, actor: Actor, project: ProjectRow, ceremony: Ceremony, role: AgentRoleRow): void {
+  const claimant = claimantOf(actor);
+  const t = now();
+  const alreadyMine = project.ceremonyClaimBy === claimant && project.ceremonyClaimExpiresAt != null && project.ceremonyClaimExpiresAt > t;
+  if (!alreadyMine) {
+    recordActivity(tx, batch, {
+      projectId: project.id,
+      actor,
+      action: 'ceremony.started',
+      roleKey: role.key,
+      message: `${actorLabel(actor, role.name)} started ${CEREMONY_NAMES[ceremony]}`,
+      data: { ceremony },
+    });
+  }
   tx.update(projects)
     .set({
       ceremonyClaimBy: claimant,
@@ -222,7 +242,7 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
       if (!ceremonyAvailable(project, claimant, t)) {
         return { kind: 'none', status: 'waiting', message: 'Another agent session is running the project kickoff.' };
       }
-      claimCeremony(tx, project, claimant);
+      claimCeremony(tx, batch, actor, project, 'kickoff', pm);
       const existing = tx.select({ n: sql<number>`count(*)` }).from(tasks).where(eq(tasks.projectId, projectId)).get();
       return {
         kind: 'ceremony',
@@ -300,7 +320,7 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
       if (othersWorking || !ceremonyAvailable(project, claimant, t)) {
         return { kind: 'none', status: 'waiting', message: 'Other agent sessions are still working on this sprint.' };
       }
-      claimCeremony(tx, project, claimant);
+      claimCeremony(tx, batch, actor, project, 'sprint_review', pm);
       const items = tx
         .select()
         .from(tasks)
@@ -337,7 +357,7 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
       )
       .all();
     if (refined.length > 0 && ceremonyAvailable(project, claimant, t)) {
-      claimCeremony(tx, project, claimant);
+      claimCeremony(tx, batch, actor, project, 'sprint_planning', pm);
       const carryKinds = new Set(['todo', 'in_progress', 'review', 'testing']);
       const carried = tx
         .select()
