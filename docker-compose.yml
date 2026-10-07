@@ -19,12 +19,12 @@ x-hardening: &hardening
 services:
   api:
     <<: *hardening
-    image: loop-coder-api:${APP_VERSION:-0.2.0}
+    image: loop-coder-api:${APP_VERSION:-0.3.0}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-0.2.0}
+        APP_VERSION: ${APP_VERSION:-0.3.0}
         GIT_SHA: ${GIT_SHA:-unknown}
         BUILD_TIME: ${BUILD_TIME:-}
     environment:
@@ -54,12 +54,12 @@ services:
 
   web:
     <<: *hardening
-    image: loop-coder-web:${APP_VERSION:-0.2.0}
+    image: loop-coder-web:${APP_VERSION:-0.3.0}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-0.2.0}
+        APP_VERSION: ${APP_VERSION:-0.3.0}
         GIT_SHA: ${GIT_SHA:-unknown}
     environment:
       # Sites allowed to embed the UI in an iframe (see .env.example). Default: none.
