@@ -175,9 +175,12 @@ export interface JourneyStep {
   durationMs: number | null;
 }
 
+/** Events that put a work item into a stage (it was created there or moved there). */
+export const isStageChange = (a: ActivityDTO, taskId: string): boolean => a.taskId === taskId && a.toKind !== null;
+
 /** One work item's path through the flow, oldest first, with the time it spent in each stage. */
 export function journeyOf(timeline: ActivityDTO[], taskId: string): JourneyStep[] {
-  const events = timeline.filter((a) => a.taskId === taskId);
+  const events = timeline.filter((a) => isStageChange(a, taskId));
   return events.map((a, i) => {
     const next = events[i + 1];
     return {

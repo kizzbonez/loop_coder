@@ -56,7 +56,8 @@ function layoutHorizontal(width: number): FlowLayout {
     review: { x: xAt(3), y: pipeY, w: nodeW, h: nodeH },
     testing: { x: xAt(4), y: pipeY, w: nodeW, h: nodeH },
     done: { x: xAt(5), y: pipeY, w: nodeW, h: nodeH },
-    blocked: { x: (cx(2) + cx(3)) / 2 - humanW / 2, y: lowerY, w: humanW, h: 104 },
+    // Under In Progress: escalations go straight down, clear of the rework arcs.
+    blocked: { x: cx(2) - humanW / 2, y: lowerY, w: humanW, h: 104 },
     lounge: { x: xAt(0), y: lowerY, w: Math.min(260, nodeW * 1.5), h: 104 },
   };
   return { width, height: lowerY + 104 + 28, orientation: 'horizontal', rects };

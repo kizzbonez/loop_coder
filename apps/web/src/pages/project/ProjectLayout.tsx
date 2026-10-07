@@ -1,4 +1,4 @@
-import { Activity, Bot, ChevronRight, FolderTree, ListTodo, Rocket, Settings, SquareKanban, Target } from 'lucide-react';
+import { Activity, Bot, ChevronRight, FolderTree, ListTodo, Rocket, Settings, SquareKanban, Target, Workflow } from 'lucide-react';
 import { Link, Outlet, useParams } from 'react-router';
 import { AgentStatus, LiveIndicator } from '../../components/board/AgentStatus';
 import { TaskDrawer } from '../../components/board/TaskDrawer';
@@ -92,6 +92,7 @@ function ProjectShell({ ctx, drawer }: { ctx: ProjectContext; drawer: ReturnType
           className="mt-2"
           items={[
             { to: `${base}/board`, label: 'Board', icon: SquareKanban },
+            { to: `${base}/flow`, label: 'Flow', icon: Workflow },
             { to: `${base}/backlog`, label: 'Backlog', icon: ListTodo },
             { to: `${base}/sprints`, label: 'Sprints', icon: Rocket },
             { to: `${base}/activity`, label: 'Activity', icon: Activity },

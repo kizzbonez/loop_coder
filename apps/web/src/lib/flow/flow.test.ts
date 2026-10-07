@@ -300,6 +300,7 @@ describe('flow replay phases and journeys', () => {
       act('task.created', { taskId: 'a', toKind: 'backlog', createdAt: at(0) }),
       act('task.moved', { taskId: 'b', fromKind: 'todo', toKind: 'in_progress', createdAt: at(5) }),
       act('task.moved', { taskId: 'a', fromKind: 'backlog', toKind: 'todo', createdAt: at(10) }),
+      act('task.started', { taskId: 'a', createdAt: at(20) }), // not a stage change
       act('task.moved', { taskId: 'a', fromKind: 'todo', toKind: 'done', createdAt: at(40) }),
     ];
     const journey = journeyOf(timeline, 'a');

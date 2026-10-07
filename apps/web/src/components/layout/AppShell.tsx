@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { IconButton } from '../ui/Button';
 import { PageLoader } from '../ui/misc';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Sidebar } from './Sidebar';
 import { UpdateNotice } from './UpdateNotice';
 
@@ -33,9 +34,11 @@ export function AppShell() {
         </div>
         <main className="min-h-0 flex-1 overflow-y-auto">
           {/* Pages are code-split; keep the shell visible while one loads. */}
-          <Suspense fallback={<PageLoader />}>
-            <Outlet />
-          </Suspense>
+          <ErrorBoundary resetKey={location.pathname + location.search}>
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
       <UpdateNotice />

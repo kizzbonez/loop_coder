@@ -20,6 +20,8 @@ const env = {
   APP_ORIGIN: `http://localhost:${port}`,
   COOKIE_SECURE: 'auto',
   SETUP_CODE: 'E2E-SETUP-CODE-0001',
+  // Test the secure default, not the framing allowed for the developer's own sites.
+  FRAME_ANCESTORS: 'none',
   // Never share the real stack's edge network (where a tunnel connector may be attached).
   EDGE_NETWORK: `${project}-edge`,
   WORKSPACES_HOST_DIR: workspaces,

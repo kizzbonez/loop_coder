@@ -19,9 +19,13 @@ export interface ReplayControls {
   setSpeed: (speed: ReplaySpeed) => void;
 }
 
-/** A tape player over `length` steps: one step every `stepMs / speed` while playing. */
-export function useReplay(length: number, stepMs = 1400): ReplayControls {
-  const [state, setState] = useState({ cursor: 0, playing: false, speed: 1 as ReplaySpeed, advanced: false });
+/**
+ * A tape player over `length` steps: one step every `stepMs / speed` while playing. A new
+ * `tape` (e.g. switching from the project replay to one item's journey) rewinds to the start.
+ */
+export function useReplay(length: number, stepMs = 1400, tape: string = ''): ReplayControls {
+  const [state, setState] = useState({ cursor: 0, playing: false, speed: 1 as ReplaySpeed, advanced: false, tape });
+  if (state.tape !== tape) setState((s) => ({ ...s, tape, cursor: 0, playing: false, advanced: false }));
   const clamp = useCallback((n: number) => Math.max(0, Math.min(length, n)), [length]);
 
   useEffect(() => {
@@ -43,6 +47,8 @@ export function useReplay(length: number, stepMs = 1400): ReplayControls {
   const pause = useCallback(() => setState((s) => ({ ...s, playing: false })), []);
   return {
     ...state,
+    // Never point past the end, even for the one render before the effect above catches up.
+    cursor: state.tape === tape ? Math.min(state.cursor, length) : 0,
     length,
     play,
     pause,

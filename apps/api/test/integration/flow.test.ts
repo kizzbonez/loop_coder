@@ -40,6 +40,7 @@ describe('Flow view data', () => {
     await claude.ok('create_work_items', { ...P, items: [{ title: 'Search', story_points: 3, acceptance_criteria: '- Finds items' }] });
     await claude.ok('complete_kickoff', { ...P, summary: 'ok' });
     expect((await detail()).agents[0]!.currentCeremony).toBeNull();
+    expect((await detail()).kickoffCompletedAt).not.toBeNull();
 
     await claude.ok('get_next_work', P); // refinement of SHOP-1
     await claude.ok('mark_refined', { item: 'SHOP-1', summary: 'ready' });

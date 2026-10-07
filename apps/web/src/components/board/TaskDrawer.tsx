@@ -1,6 +1,7 @@
 import clsx from 'clsx';
-import { Bot, Check, CircleCheck, Link2, Lock, Pencil, Play, Send, Trash, X } from 'lucide-react';
+import { Bot, Check, CircleCheck, Link2, Lock, Pencil, Play, Route, Send, Trash, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import {
   ITEM_TYPES,
@@ -248,6 +249,7 @@ function TaskBody({
   const children = tasks.filter((t) => t.parentId === task.id);
   const deps = task.dependsOn.map((id) => lookups.tasksById.get(id)).filter(Boolean) as typeof tasks;
   const depCandidates = tasks.filter((t) => t.id !== task.id && t.type !== 'epic' && !task.dependsOn.includes(t.id));
+  const navigate = useNavigate();
 
   return (
     <>
@@ -273,6 +275,7 @@ function TaskBody({
             aria-label="Title"
           />
         </div>
+        <IconButton icon={Route} label="Replay journey" title="Replay this item's journey through the flow" onClick={() => navigate(`/p/${task.projectId}/flow?replay=${task.id}`)} />
         {canEdit && <IconButton icon={Trash} tone="danger" label="Delete work item" onClick={onDelete} />}
         <IconButton icon={X} label="Close" onClick={onClose} />
       </header>

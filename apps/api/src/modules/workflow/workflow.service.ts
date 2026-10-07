@@ -16,6 +16,7 @@ import { EventBatch } from '../../realtime/bus';
 import { actorLabel, agentNameOf, recordActivity } from '../activity/activity.service';
 import { requireProjectAccess } from '../projects/access';
 import { columnByKind, getColumns, getProjectRow } from '../projects/projects.query';
+import { getProjectDTO } from '../projects/projects.service';
 import { listRoles } from '../roles/roles.service';
 import { getSettings } from '../settings/settings.service';
 import { completeSprintTx, insertSprint, startSprintTx } from '../sprints/sprints.service';
@@ -587,6 +588,8 @@ export function completeKickoff(actor: Actor, projectId: string, summary: string
       roleKey: 'project_manager',
       message: `${actorLabel(actor, 'Project Manager')} completed the kickoff: ${summary}`.slice(0, 500),
     });
+    // Boards and the Flow view switch from "kickoff" to "planning" without a reload.
+    batch.add(projectId, { type: 'project.updated', project: getProjectDTO(actor, projectId, tx) });
   });
   batch.flush();
 }

@@ -25,6 +25,7 @@ const WorkspaceMembers = page(() => import('./pages/workspace/WorkspaceMembers')
 const WorkspaceSettings = page(() => import('./pages/workspace/WorkspaceSettings'), 'WorkspaceSettings');
 const ProjectLayout = page(() => import('./pages/project/ProjectLayout'), 'ProjectLayout');
 const BoardView = page(() => import('./pages/project/BoardView'), 'BoardView');
+const FlowView = page(() => import('./pages/project/flow/FlowView'), 'FlowView');
 const BacklogView = page(() => import('./pages/project/BacklogView'), 'BacklogView');
 const SprintsView = page(() => import('./pages/project/SprintsView'), 'SprintsView');
 const ActivityView = page(() => import('./pages/project/ActivityView'), 'ActivityView');
@@ -93,6 +94,7 @@ export function App() {
           <Route path="p/:projectId" element={<ProjectLayout />}>
             <Route index element={<Navigate to="board" replace />} />
             <Route path="board" element={<BoardView />} />
+            <Route path="flow" element={<FlowView />} />
             <Route path="backlog" element={<BacklogView />} />
             <Route path="sprints" element={<SprintsView />} />
             <Route path="activity" element={<ActivityView />} />
