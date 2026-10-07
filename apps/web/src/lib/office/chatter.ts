@@ -15,7 +15,10 @@ export interface ChatLine {
 
 /** Markdown → one short spoken sentence: no code blocks, links as text, at most `max` characters. */
 export function speech(markdown: string, max = 140): string {
+  // Remarks can be long; only the start is ever spoken, and bounding the input keeps the
+  // clean-up below fast whatever the text contains.
   const text = markdown
+    .slice(0, 2000)
     .replace(/```[\s\S]*?```/g, ' (code) ')
     .replace(/`([^`]*)`/g, '$1')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')

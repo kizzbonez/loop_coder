@@ -34,7 +34,7 @@ test('the Flow tab shows agents moving work through the SDLC live', async ({ pag
 
   // Kickoff: the agent appears at the Kickoff ceremony.
   await mcp(request, claude, 'get_next_work');
-  await expect(page.getByRole('button', { name: /Kickoff, in progress/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /kickoff, in progress/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Claude Code · Project Manager/ })).toBeVisible();
   await mcp(request, claude, 'create_work_items', {
     items: [

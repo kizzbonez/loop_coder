@@ -25,6 +25,9 @@ export const DEFAULT_SETTINGS: OfficeSettings = {
 };
 
 export const TEXT_SPEEDS: readonly TextSpeed[] = ['slow', 'normal', 'fast', 'instant'];
+
+/** Characters per second for typed-out speech; "instant" shows the whole line at once. */
+export const TEXT_CPS: Record<TextSpeed, number> = { slow: 18, normal: 34, fast: 70, instant: Number.POSITIVE_INFINITY };
 const KEY = 'lc-office-settings';
 
 const volume = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 10) / 10 : fallback);

@@ -6,6 +6,7 @@ import {
   createTaskSchema,
   formatTaskKey,
   ITEM_TYPES,
+  CEREMONY_LABELS,
   MCP_SERVER_NAME,
   PRIORITIES,
   REMARK_KINDS,
@@ -209,7 +210,7 @@ export function buildMcpServer(actor: Actor): McpServer {
           return `${pkg.instructions}\n\n${detail}`;
         }
         if (pkg.kind === 'ceremony') {
-          const label = { kickoff: 'Project kickoff', sprint_planning: 'Sprint planning', sprint_review: 'Sprint review' }[pkg.ceremony];
+          const label = CEREMONY_LABELS[pkg.ceremony];
           touch(p.id, { taskId: null, roleKey: pkg.role.key, ceremony: pkg.ceremony, activity: `${label} as ${pkg.role.name}` });
           return pkg.instructions;
         }

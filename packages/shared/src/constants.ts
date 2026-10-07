@@ -84,6 +84,12 @@ export type RoleSource = (typeof ROLE_SOURCES)[number];
 export const CEREMONIES = ['kickoff', 'sprint_planning', 'sprint_review'] as const;
 export type Ceremony = (typeof CEREMONIES)[number];
 
+export const CEREMONY_LABELS: Record<Ceremony, string> = {
+  kickoff: 'Project kickoff',
+  sprint_planning: 'Sprint planning',
+  sprint_review: 'Sprint review',
+};
+
 /** Activity actions that change where work or agents are in the SDLC flow (the Flow view). */
 export const FLOW_ACTIONS = [
   'task.created',

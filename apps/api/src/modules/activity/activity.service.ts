@@ -77,7 +77,15 @@ export function recordActivity(exec: Executor, batch: EventBatch, input: Activit
   batch.add(input.projectId, { type: 'activity.created', activity: toDTO(row, input.actor?.name ?? null) });
 }
 
-export function listActivity(projectId: string, limit: number, before?: Date, actions?: readonly string[]): ActivityDTO[] {
+export interface ActivityQuery {
+  limit: number;
+  /** Only entries older than this (paging). */
+  before?: Date;
+  /** Only these actions (e.g. the flow events). */
+  actions?: readonly string[];
+}
+
+export function listActivity(projectId: string, { limit, before, actions }: ActivityQuery): ActivityDTO[] {
   const where = and(
     eq(activities.projectId, projectId),
     before ? lt(activities.createdAt, before) : undefined,

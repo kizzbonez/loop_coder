@@ -365,7 +365,8 @@ export type ProjectEvent =
   | { type: 'task.upserted'; task: TaskDTO }
   | { type: 'task.deleted'; taskId: string }
   | { type: 'remark.created'; remark: RemarkDTO }
-  | { type: 'project.updated'; project: ProjectDTO }
+  /** Without `myAccess`: every viewer keeps their own access level. */
+  | { type: 'project.updated'; project: Omit<ProjectDTO, 'myAccess'> }
   | { type: 'project.deleted'; projectId: string }
   | { type: 'columns.updated'; columns: ColumnDTO[] }
   | { type: 'sprint.upserted'; sprint: SprintDTO }

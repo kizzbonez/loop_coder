@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ActivityDTO, AgentRoleDTO, ColumnDTO, ColumnKind, OnlineAgentDTO, TaskDTO } from '@loop/shared';
 import { bendFor, center, edgeGeometry, geometryFor, layoutFlow, samplePoints, VERTICAL_BELOW, type Rect } from './layout';
 import { buildStages, classifyMove, currentPhase, placeAgents, routeFor, STATIC_EDGES, transitionCounts, type StageId } from './model';
-import { buildTimeline, journeyOf, lastStages, snapshotPhase, snapshots, stageCounts } from './replay';
+import { buildTimeline, createReplay, journeyOf, lastStages, snapshotPhase, snapshots, stageCounts } from './replay';
 
 const KINDS: ColumnKind[] = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'blocked', 'done'];
 const columns: ColumnDTO[] = KINDS.map((kind, i) => ({
@@ -309,5 +309,40 @@ describe('flow replay phases and journeys', () => {
       ['todo', 30_000],
       ['done', null],
     ]);
+  });
+});
+
+describe('flow replay at scale and ordering', () => {
+  it('keeps events of one transaction in the order they were recorded', () => {
+    const at = '2026-01-01T00:00:00.000Z';
+    // The API lists newest first: "started" was recorded after the move in the same millisecond.
+    const newestFirst = [
+      act('task.started', { taskId: 'a', createdAt: at, roleKey: 'software_engineer' }),
+      act('task.moved', { taskId: 'a', fromKind: 'todo', toKind: 'in_progress', createdAt: at }),
+    ];
+    const timeline = buildTimeline(newestFirst);
+    expect(timeline.map((a) => a.action)).toEqual(['task.moved', 'task.started']);
+    const snaps = snapshots(timeline, [task('a', 'in_progress')], kindOfColumn);
+    expect(snaps[2]!.agents.get('Claude Code')!.stage).toBe('in_progress');
+  });
+
+  it('jumps to any moment of a long history from checkpoints', () => {
+    const items = Array.from({ length: 40 }, (_, i) => task(`t${i}`, 'done'));
+    const history: ActivityDTO[] = [];
+    for (const t of items) {
+      history.push(act('task.created', { taskId: t.id, toKind: 'backlog' }));
+      history.push(act('task.moved', { taskId: t.id, fromKind: 'backlog', toKind: 'todo' }));
+      history.push(act('task.moved', { taskId: t.id, fromKind: 'todo', toKind: 'done' }));
+    }
+    const timeline = buildTimeline([...history].reverse());
+    expect(timeline).toHaveLength(120);
+    const replay = createReplay(timeline, items, kindOfColumn);
+    const full = snapshots(timeline, items, kindOfColumn);
+    for (const i of [0, 1, 49, 50, 51, 99, 100, 119, 120]) expect(Object.fromEntries(stageCounts(replay.at(i))), `at ${i}`).toEqual(Object.fromEntries(stageCounts(full[i]!)));
+    expect(Object.fromEntries(stageCounts(replay.at(120)))).toEqual({ done: 40 });
+    expect(replay.at(999).stageOf.size).toBe(40); // clamped to the end
+    // Snapshots handed out are copies: changing one never changes the replay.
+    replay.at(60).stageOf.clear();
+    expect(replay.at(60).stageOf.size).toBeGreaterThan(0);
   });
 });

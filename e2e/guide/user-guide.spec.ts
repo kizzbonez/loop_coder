@@ -250,6 +250,33 @@ test('capture the user guide screenshots', async ({ page, browser, request }) =>
   await snapEl(page.getByRole('button', { name: 'Pause agent' }).locator('..'), '14-agent-status');
   await snapEl(page.getByRole('region', { name: 'To Do', exact: true }).locator('header'), '15-column-header');
 
+  // Flow view: live graph, then CANDLE-5's journey (it went back from review once).
+  await page.goto(`/p/${projectId}/flow`);
+  await expect(page.getByRole('button', { name: /^Cursor · QA Engineer/ })).toBeVisible();
+  await expect(page.locator('[data-edge="review->in_progress"] text')).toContainText('changes requested');
+  await page.waitForTimeout(1200); // let the agents glide into place
+  await snap(page, '35-flow');
+  await page.goto(`/p/${projectId}/flow?replay=${id('CANDLE-5')}`);
+  const position = page.getByRole('slider', { name: 'Replay position' });
+  await position.fill(await position.getAttribute('max') ?? '0');
+  await expect(page.locator('[data-edge="review->in_progress"] path.flow-edge-journey')).toHaveCount(1);
+  await page.waitForTimeout(1200);
+  await snap(page, '36-flow-journey');
+
+  // Agent office: everyone walks in, then the agents talk.
+  await page.goto(`/p/${projectId}/office`);
+  await expect(page.getByRole('heading', { name: 'In the office · 2' })).toBeVisible();
+  await page.waitForTimeout(6000);
+  await cursor('add_remark', { item: 'CANDLE-6', kind: 'test_report', body: 'Product page checks out on iPhone and Android.' });
+  await claude('log_progress', { ...P, item: 'CANDLE-8', message: 'Writing the cart API tests' });
+  await expect(page.getByRole('log', { name: 'Office chatter' })).toContainText('Writing the cart API tests');
+  await page.waitForTimeout(2500); // typewriter
+  await snap(page, '37-office');
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(page.getByRole('dialog', { name: 'Game menu' })).toBeVisible();
+  await snap(page, '38-office-menu');
+  await page.keyboard.press('Escape');
+
   await page.goto(`/p/${projectId}/board?task=${id('CANDLE-5')}`);
   await expect(page.getByRole('dialog').getByText('Changes requested')).toBeVisible();
   await snap(page, '16-task-drawer');

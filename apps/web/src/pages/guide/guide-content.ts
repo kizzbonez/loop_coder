@@ -135,6 +135,17 @@ export function resolveAnchor(anchor: string, sections: GuideSection[] = GUIDE.s
   return owner ? { section: owner, hash: anchor } : undefined;
 }
 
+/**
+ * The section for a page slug. Sections are renumbered when the guide grows, so an old link
+ * such as `11-sprints` still finds "13. Sprints" by its title.
+ */
+export function resolveSlug(slug: string, sections: GuideSection[] = GUIDE.sections): GuideSection | undefined {
+  const exact = sections.find((s) => s.slug === slug);
+  if (exact) return exact;
+  const title = slug.replace(/^\d+-/, '');
+  return sections.find((s) => s.slug.replace(/^\d+-/, '') === title);
+}
+
 /** Resolve a markdown image path such as `images/guide/12-board.png` to its bundled URL. */
 export function guideImageUrl(src: string | undefined): string | undefined {
   if (!src) return undefined;

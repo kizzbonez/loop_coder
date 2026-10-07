@@ -83,3 +83,17 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('fine')).toBeTruthy();
   });
 });
+
+describe('useReplay serial', () => {
+  it('counts every step forward, also when a step is replayed after rewinding', () => {
+    const { result } = renderHook(() => useReplay(3));
+    act(() => result.current.step(1));
+    expect(result.current.serial).toBe(1);
+    act(() => result.current.step(-1));
+    act(() => result.current.step(1));
+    expect(result.current).toMatchObject({ cursor: 1, serial: 2, advanced: true });
+    act(() => result.current.seek(3));
+    act(() => result.current.step(1)); // already at the end
+    expect(result.current.serial).toBe(2);
+  });
+});

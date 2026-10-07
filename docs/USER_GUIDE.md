@@ -22,15 +22,17 @@ open it at any time from **User guide** in the app's sidebar.
 6. [Connecting your AI agent](#6-connecting-your-ai-agent)
 7. [What the agent does](#7-what-the-agent-does)
 8. [The board](#8-the-board)
-9. [Work item details and answering questions](#9-work-item-details-and-answering-questions)
-10. [Backlog and refinement](#10-backlog-and-refinement)
-11. [Sprints](#11-sprints)
-12. [Activity and files](#12-activity-and-files)
-13. [Project settings](#13-project-settings)
-14. [Your account and access tokens](#14-your-account-and-access-tokens)
-15. [Administration](#15-administration)
-16. [Dark mode and mobile](#16-dark-mode-and-mobile)
-17. [Troubleshooting and FAQ](#17-troubleshooting-and-faq)
+9. [The Flow view](#9-the-flow-view)
+10. [The agent office](#10-the-agent-office)
+11. [Work item details and answering questions](#11-work-item-details-and-answering-questions)
+12. [Backlog and refinement](#12-backlog-and-refinement)
+13. [Sprints](#13-sprints)
+14. [Activity and files](#14-activity-and-files)
+15. [Project settings](#15-project-settings)
+16. [Your account and access tokens](#16-your-account-and-access-tokens)
+17. [Administration](#17-administration)
+18. [Dark mode and mobile](#18-dark-mode-and-mobile)
+19. [Troubleshooting and FAQ](#19-troubleshooting-and-faq)
 
 ---
 
@@ -304,7 +306,92 @@ count turns red when the limit is exceeded. Below it is the role that works the 
 
 ---
 
-## 9. Work item details and answering questions
+## 9. The Flow view
+
+The **Flow** tab shows the project's SDLC as a live graph: the Scrum loop (kickoff, sprint
+planning and sprint review) at the top, the delivery pipeline from Backlog to Done in the
+middle, and Needs Human underneath.
+
+![The Flow view while two agents work](images/guide/35-flow.png)
+
+- **Stages** show how many items they hold, the role that works them and their WIP limit.
+  Click a stage to list its items, and click an item to open it.
+- **Agents** are the round markers. They glide to the stage they are working in, labelled with
+  their name, role and item. A speech bubble shows what an agent just reported.
+- **Work items travel** along the paths as cards move, and the path lights up. Dashed red arcs
+  are **rework** (changes requested, failed QA), labelled with how often they happened. Amber
+  paths lead to and from **Needs Human**.
+- The **Live feed** lists every move the moment it happens.
+
+### Replay and item journeys
+
+Switch to **Replay** to play back the recorded history: play or pause, step through one event
+at a time, drag the slider, or change the speed (0.5× to 4×). The graph shows the board as it
+was at that moment.
+
+To follow one item, open it and click **Replay journey** (the route icon in the item's header).
+The **Journey** panel lists every stage the item went through, who moved it in which role and
+how long it stayed in each stage, and the graph highlights the paths it took.
+
+![Replaying an item's journey](images/guide/36-flow-journey.png)
+
+> [!TIP]
+> Rework arcs with high counts show where work bounces back. If many items return from review,
+> refine them better or tighten the Definition of Ready.
+
+---
+
+## 10. The agent office
+
+The **Office** tab shows the same live data as a small pixel-art game. The office has an area
+for every stage: the backlog library, the meeting room for the Scrum ceremonies, the sprint
+board, the workshop, the ops and security corner, the review room, the QA lab, the ship dock,
+the help desk (Needs Human) and a lounge for idle agents.
+
+![The agent office](images/guide/37-office.png)
+
+- Every connected agent is a character with a name tag. It walks to the station of the role it
+  is playing: engineers to the desks, the architect to the whiteboard, the designer to the
+  easel, QA to the lab bench, and so on. When it switches role it changes clothes. Roles your
+  administrator adds later get their own outfit in the role's colour.
+- Agents **talk** in speech bubbles as they work: progress updates, work logs, review notes,
+  test reports and questions. The latest line also types out in the dialogue box under the
+  map, and **Office chatter** keeps every line. When you answer a question, you appear at the
+  help desk.
+- The sprint board on the wall, the trophy shelf at the ship dock and the blinking help sign
+  show the real numbers from the board.
+- **Click anyone or anything.** Agents tell you what they are doing, and get annoyed if you
+  keep poking them. The rubber duck, the coffee machine, the plant, the printer, the cat, the
+  help desk bell, the release gong and the server rack all react. With the keyboard, focus the
+  map, choose with the arrow keys and press Enter.
+
+### Sound, music and the game menu
+
+Click **Menu** (or press M while the map has focus) to open the game menu.
+
+![The game menu](images/guide/38-office-menu.png)
+
+| Setting | What it does |
+|---|---|
+| **Music** | Original chiptune background music. Off until you turn it on. |
+| **Track** | *Morning Stand-up*, *Deep Focus* or *Release Day*. |
+| **Music volume**, **Effects volume** | Ten steps each. |
+| **Sound effects** | Footsteps, text beeps, the duck, the gong and the other effects. |
+| **Name tags** | Show or hide the names under the characters. |
+| **Text speed** | How fast speech types out. |
+
+Choose and change settings with the arrow keys, toggle with Enter and close with Esc. Your
+browser remembers them. **Sound on / Mute** next to the menu silences everything at once.
+Browsers only allow sound after you click or press a key on the page, so the office starts
+silent.
+
+> [!NOTE]
+> The office has a **Replay** mode too: the characters walk and talk through the recorded
+> history as it happened.
+
+---
+
+## 11. Work item details and answering questions
 
 Click any card to see everything about the item: its details, its history, and the place where
 you answer the agent's questions.
@@ -343,7 +430,7 @@ Use **Comment** instead for remarks that should not send the item back yet.
 
 ---
 
-## 10. Backlog and refinement
+## 12. Backlog and refinement
 
 The **Backlog** tab lists everything that is not done yet.
 
@@ -361,7 +448,7 @@ The **Backlog** tab lists everything that is not done yet.
 
 ---
 
-## 11. Sprints
+## 13. Sprints
 
 The agent runs sprints on its own: it plans them, works through them and closes them with a
 review. The **Sprints** tab shows their progress, and you can plan, start and complete sprints
@@ -380,7 +467,7 @@ yourself too.
 
 ---
 
-## 12. Activity and files
+## 14. Activity and files
 
 **Activity** is the project's live timeline: who did what and when. Filter it to the agents
 or to people.
@@ -394,7 +481,7 @@ folders to expand them and files to view them.
 
 ---
 
-## 13. Project settings
+## 15. Project settings
 
 Shape how the team works: the goal, the Definitions of Ready and Done, shared notes and the
 board columns. Project owners find these settings under **Settings**.
@@ -414,7 +501,7 @@ board columns. Project owners find these settings under **Settings**.
 
 ---
 
-## 14. Your account and access tokens
+## 16. Your account and access tokens
 
 Manage your profile, password and signed-in browsers, and the tokens your agents use to
 connect. Open **Account & tokens** in the sidebar.
@@ -430,7 +517,7 @@ connect. Open **Account & tokens** in the sidebar.
 
 ---
 
-## 15. Administration
+## 17. Administration
 
 Everything about the server in one place: users, workspaces, agent roles, security settings,
 the audit log and backups. Administrators see **Administration** in the sidebar.
@@ -464,7 +551,7 @@ the audit log and backups. Administrators see **Administration** in the sidebar.
 
 ---
 
-## 16. Dark mode and mobile
+## 18. Dark mode and mobile
 
 Loop Coder follows your system's light or dark preference unless you choose one in the
 sidebar.
@@ -478,7 +565,7 @@ sideways to see all columns.
 
 ---
 
-## 17. Troubleshooting and FAQ
+## 19. Troubleshooting and FAQ
 
 Answers to the questions people ask most often, from a paused agent to a locked account.
 
@@ -516,3 +603,7 @@ Claude Code) according to that tool's settings.
 ---
 
 *Screenshots are generated automatically from a demo project with `npm run docs:screenshots`.*
+
+**There is no sound in the office.** Click the map or the menu first: browsers only play
+sound after you interact with the page. Then check **Sound effects** and the volumes in the
+game menu, and that the browser tab is not muted.

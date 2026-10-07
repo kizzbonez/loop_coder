@@ -11,6 +11,8 @@ export interface ReplayControls {
   speed: ReplaySpeed;
   /** True when the last cursor change was a single step forward (worth animating). */
   advanced: boolean;
+  /** Counts every step forward, so a step replayed after rewinding animates again. */
+  serial: number;
   play: () => void;
   pause: () => void;
   toggle: () => void;
@@ -24,7 +26,7 @@ export interface ReplayControls {
  * `tape` (e.g. switching from the project replay to one item's journey) rewinds to the start.
  */
 export function useReplay(length: number, stepMs = 1400, tape: string = ''): ReplayControls {
-  const [state, setState] = useState({ cursor: 0, playing: false, speed: 1 as ReplaySpeed, advanced: false, tape });
+  const [state, setState] = useState({ cursor: 0, playing: false, speed: 1 as ReplaySpeed, advanced: false, serial: 0, tape });
   if (state.tape !== tape) setState((s) => ({ ...s, tape, cursor: 0, playing: false, advanced: false }));
   const clamp = useCallback((n: number) => Math.max(0, Math.min(length, n)), [length]);
 
@@ -34,7 +36,7 @@ export function useReplay(length: number, stepMs = 1400, tape: string = ''): Rep
       setState((s) => ({ ...s, playing: false }));
       return;
     }
-    const timer = setTimeout(() => setState((s) => ({ ...s, cursor: Math.min(length, s.cursor + 1), advanced: true })), stepMs / state.speed);
+    const timer = setTimeout(() => setState((s) => ({ ...s, cursor: Math.min(length, s.cursor + 1), advanced: true, serial: s.serial + 1 })), stepMs / state.speed);
     return () => clearTimeout(timer);
   }, [state.playing, state.cursor, state.speed, length, stepMs]);
 
@@ -54,7 +56,11 @@ export function useReplay(length: number, stepMs = 1400, tape: string = ''): Rep
     pause,
     toggle: () => (state.playing ? pause() : play()),
     seek: (cursor) => setState((s) => ({ ...s, cursor: clamp(cursor), advanced: false })),
-    step: (delta) => setState((s) => ({ ...s, playing: false, cursor: clamp(s.cursor + delta), advanced: delta === 1 && s.cursor < length })),
+    step: (delta) =>
+      setState((s) => {
+        const forward = delta === 1 && s.cursor < length;
+        return { ...s, playing: false, cursor: clamp(s.cursor + delta), advanced: forward, serial: s.serial + (forward ? 1 : 0) };
+      }),
     setSpeed: (speed) => setState((s) => ({ ...s, speed })),
   };
 }

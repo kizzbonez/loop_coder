@@ -378,6 +378,24 @@ export function applyTaskUpdate(
   tx.update(tasks).set(update).where(eq(tasks.id, task.id)).run();
   if (dependsOn) setDependencies(tx, task, dependsOn);
 
+  // Joining or leaving the running sprint moves the card: record it as a move so the Flow view
+  // and its replay see it.
+  if (update.columnId && update.columnId !== task.columnId) {
+    const from = columns.find((c) => c.id === task.columnId)!;
+    const to = columns.find((c) => c.id === update.columnId)!;
+    const key = keyOf(tx, task);
+    recordActivity(tx, batch, {
+      projectId: task.projectId,
+      actor,
+      action: 'task.moved',
+      taskId: task.id,
+      taskKey: key,
+      roleKey,
+      message: `${actorLabel(actor, roleName(roleKey, tx))} moved ${key} from ${from.name} to ${to.name}`,
+      data: { from: from.kind, to: to.kind },
+    });
+  }
+
   if (!silent) {
     const changed = Object.keys(data);
     const key = keyOf(tx, task);

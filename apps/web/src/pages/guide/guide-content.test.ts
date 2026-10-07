@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GUIDE, GUIDE_IMAGES, GUIDE_MARKDOWN, guideImageUrl, headingSlug, parseGuide, plainText, resolveAnchor, searchGuide } from './guide-content';
+import { GUIDE, GUIDE_IMAGES, GUIDE_MARKDOWN, guideImageUrl, headingSlug, parseGuide, plainText, resolveAnchor, resolveSlug, searchGuide } from './guide-content';
 
 describe('in-app user guide', () => {
   it('bundles docs/USER_GUIDE.md', () => {
@@ -70,6 +70,13 @@ describe('in-app user guide', () => {
     expect(referenced.length).toBeGreaterThanOrEqual(30);
     for (const src of referenced) expect(guideImageUrl(src), src).toBeTruthy();
     expect(GUIDE_IMAGES.size).toBeGreaterThanOrEqual(referenced.length);
+  });
+
+  it('finds sections by slug, also after renumbering', () => {
+    expect(resolveSlug('13-sprints')?.title).toBe('Sprints');
+    expect(resolveSlug('11-sprints')?.title).toBe('Sprints');
+    expect(resolveSlug('9-the-flow-view')?.title).toBe('The Flow view');
+    expect(resolveSlug('99-nothing')).toBeUndefined();
   });
 
   it('ignores unknown images', () => {

@@ -8,6 +8,7 @@ import {
   Building,
   ChevronRight,
   FolderPlus,
+  Gamepad2,
   KeyRound,
   LifeBuoy,
   Lightbulb,
@@ -22,6 +23,7 @@ import {
   Shield,
   SquareKanban,
   Target,
+  Workflow,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,7 +31,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Modal } from '../../components/ui/Modal';
 import { useConfig } from '../../lib/queries';
-import { GUIDE, guideImageUrl, resolveAnchor, searchGuide, type GuideSection } from './guide-content';
+import { GUIDE, guideImageUrl, resolveAnchor, resolveSlug, searchGuide, type GuideSection } from './guide-content';
 import { GuideMarkdown } from './GuideMarkdown';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +47,8 @@ const ICONS: Array<[RegExp, LucideIcon]> = [
   [/connecting/i, Plug],
   [/agent does/i, Bot],
   [/the board/i, SquareKanban],
+  [/flow view/i, Workflow],
+  [/agent office/i, Gamepad2],
   [/work item|answering/i, MessageSquare],
   [/backlog/i, ListTodo],
   [/sprint/i, Target],
@@ -399,7 +403,12 @@ export function GuidePage() {
   const [query, setQuery] = useState('');
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const section = slug ? GUIDE.sections.find((s) => s.slug === slug) : undefined;
+  const section = slug ? resolveSlug(slug) : undefined;
+
+  // Links from before a renumbering land on the section's current address.
+  useEffect(() => {
+    if (section && slug !== section.slug) navigate(guidePath(section) + location.hash, { replace: true });
+  }, [section, slug, location.hash, navigate]);
 
   // Older links used anchors (/guide#6-connecting-your-ai-agent): send them to the section page.
   useEffect(() => {

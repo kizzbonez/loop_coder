@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ArrowRight, Bot, Clock, History, Radio, Workflow, X } from 'lucide-react';
+import { ArrowRight, Bot, Clock, Workflow, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { ActivityDTO, AgentRoleDTO } from '@loop/shared';
@@ -10,10 +10,12 @@ import { useFlowState, type FlowState } from '../../../hooks/useFlowState';
 import { useElementWidth, useReducedMotion } from '../../../hooks/useMeasure';
 import { formatDateTime, timeAgo } from '../../../lib/format';
 import { layoutFlow } from '../../../lib/flow/layout';
-import { CEREMONY_LABELS, type FlowAgent, type StageId } from '../../../lib/flow/model';
+import { CEREMONY_LABELS } from '@loop/shared';
+import { type FlowAgent, type StageId } from '../../../lib/flow/model';
 import { useBoardLookups, useProjectContext, useTaskDrawer } from '../context';
 import { FlowGraph } from './FlowGraph';
-import { ReplayBar } from './ReplayBar';
+import { ModeToggle } from '../../../components/flow/ModeToggle';
+import { ReplayBar } from '../../../components/flow/ReplayBar';
 import { STAGE_ICONS } from './stage-meta';
 
 /** `?replay=all` replays the project; `?replay=<item id>` follows one work item's journey. */
@@ -55,28 +57,8 @@ export function FlowView() {
             Following <span className="font-mono">{focusTask.key}</span>
           </Chip>
         )}
-        <div className="ml-auto flex rounded-lg bg-surface-2 p-0.5 text-[13px]" role="radiogroup" aria-label="Flow mode">
-          {(
-            [
-              ['live', 'Live', Radio],
-              ['replay', 'Replay', History],
-            ] as const
-          ).map(([mode, label, Icon]) => {
-            const active = (mode === 'replay') === state.replaying;
-            return (
-              <button
-                key={mode}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setReplay(mode === 'replay' ? (replayParam ?? 'all') : null)}
-                className={clsx('flex items-center gap-1.5 rounded-md px-3 py-1 transition', active ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg')}
-              >
-                <Icon className={clsx('size-3.5', mode === 'live' && active && 'text-success')} />
-                {label}
-              </button>
-            );
-          })}
+        <div className="ml-auto">
+          <ModeToggle label="Flow mode" replaying={state.replaying} onChange={(replay) => setReplay(replay ? (replayParam ?? 'all') : null)} />
         </div>
       </div>
 

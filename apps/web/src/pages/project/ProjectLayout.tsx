@@ -21,7 +21,9 @@ export function ProjectLayout() {
   if (project.isPending || tasks.isPending || roles.isPending) return <PageLoader />;
   if (!project.data || !tasks.data) return <NotFound what="project" />;
   return (
+    // Keyed by project: switching projects starts every tab (replays, animations, the office) fresh.
     <ProjectShell
+      key={projectId}
       ctx={{
         project: project.data,
         tasks: tasks.data,

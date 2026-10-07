@@ -1,8 +1,8 @@
 import { Pause, Play, Radio, SkipBack, SkipForward } from 'lucide-react';
-import { IconButton } from '../../../components/ui/Button';
-import type { FlowState } from '../../../hooks/useFlowState';
-import { REPLAY_SPEEDS } from '../../../hooks/useReplay';
-import { formatDateTime } from '../../../lib/format';
+import { IconButton } from '../ui/Button';
+import type { FlowState } from '../../hooks/useFlowState';
+import { REPLAY_SPEEDS } from '../../hooks/useReplay';
+import { formatDateTime } from '../../lib/format';
 
 /** Play, step, scrub and change speed of a replay (shared by the Flow and Office tabs). */
 export function ReplayBar({ state, onExit }: { state: FlowState; onExit: () => void }) {

@@ -366,6 +366,14 @@ describe('office chatter', () => {
     expect(long.endsWith('…')).toBe(true);
   });
 
+  it('stays fast on hostile remarks', () => {
+    for (const hostile of ['['.repeat(50_000), '\n'.repeat(50_000), '- '.repeat(25_000), '`'.repeat(50_000)]) {
+      const started = performance.now();
+      speech(hostile);
+      expect(performance.now() - started).toBeLessThan(50);
+    }
+  });
+
   it('says what happened on the board', () => {
     expect(lineFromActivity(activity({ fromKind: 'in_progress', toKind: 'review' }), stage)!.text).toBe('SHOP-1 → Code Review.');
     expect(lineFromActivity(activity({ fromKind: 'testing', toKind: 'done' }), stage)).toMatchObject({ text: 'SHOP-1 is done!', cue: 'jingle' });

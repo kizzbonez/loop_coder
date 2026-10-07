@@ -31,6 +31,9 @@ for source in ${FRAME_ANCESTORS:-none}; do
   policy="${policy:+$policy }$source"
 done
 
+# Only spaces in FRAME_ANCESTORS: same as unset.
+[ -n "$policy" ] || policy="'none'"
+
 case " $policy " in
   *" 'none' "*)
     if [ "$policy" != "'none'" ]; then

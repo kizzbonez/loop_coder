@@ -1,15 +1,9 @@
 // The SDLC flow of a project as data: stages, the paths work takes between them, and where each
 // agent is. Shared by the Flow graph and the pixel office; rendering lives in the views.
-import type { ActivityDTO, AgentRoleDTO, Ceremony, ColumnDTO, ColumnKind, OnlineAgentDTO, ProjectDetailDTO, TaskDTO } from '@loop/shared';
+import { CEREMONY_LABELS, type ActivityDTO, type AgentRoleDTO, type Ceremony, type ColumnDTO, type ColumnKind, type OnlineAgentDTO, type ProjectDetailDTO, type TaskDTO } from '@loop/shared';
 
 /** Board stages in the order work flows through them. */
 export const PIPELINE: readonly ColumnKind[] = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done'];
-
-export const CEREMONY_LABELS: Record<Ceremony, string> = {
-  kickoff: 'Kickoff',
-  sprint_planning: 'Sprint planning',
-  sprint_review: 'Sprint review',
-};
 
 /** A place on the flow: a board column, a Scrum ceremony, or the lounge for idle agents. */
 export type StageId = ColumnKind | Ceremony | 'lounge';

@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { agentDisplayName, type AgentPresenceDTO, type AgentSessionDTO, type Ceremony, type OnlineAgentDTO } from '@loop/shared';
-import { db } from '../../db/client';
+import { db, type Executor } from '../../db/client';
 import { agentSessions, apiTokens, projects, tasks, users } from '../../db/schema';
 import type { Actor } from '../../lib/actor';
 import { addMinutes, now } from '../../lib/time';
@@ -61,6 +61,18 @@ export function getPresence(projectId: string): AgentPresenceDTO {
     currentCeremony: session.currentCeremony,
     currentActivity: session.currentActivity,
   };
+}
+
+/** The ceremony this agent (token) was last running on the project, from its latest session. */
+export function currentCeremonyOf(actor: Actor, projectId: string, exec: Executor = db): Ceremony | null {
+  if (actor.kind !== 'agent' || !actor.tokenId) return null;
+  const row = exec
+    .select({ ceremony: agentSessions.currentCeremony })
+    .from(agentSessions)
+    .where(and(eq(agentSessions.tokenId, actor.tokenId), eq(agentSessions.projectId, projectId)))
+    .orderBy(desc(agentSessions.lastSeenAt))
+    .get();
+  return row?.ceremony ?? null;
 }
 
 /** Agents online on a project: the latest session of each token seen within the online window. */

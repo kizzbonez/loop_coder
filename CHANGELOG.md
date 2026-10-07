@@ -15,7 +15,6 @@ All notable changes to this project are documented here. The format follows
 - The board names the agent that is working (e.g. "Cursor is working as Software Engineer")
   from the MCP client's `clientInfo`; activity, remarks, claims, presence and agent sessions
   all carry the agent name (database migration `0001_agent_names`).
-
 - Illustrated user guide (`docs/USER_GUIDE.md`) with screenshots generated from a demo
   project by `npm run docs:screenshots`.
 - The guide is built into the app: **User guide** in the sidebar and the user menu. It opens
@@ -26,18 +25,38 @@ All notable changes to this project are documented here. The format follows
   older `/guide#section` links still work.
 - `FRAME_ANCESTORS` setting: let your own sites show Loop Coder in an iframe (default: framing
   blocked). Validated at container start; see [DEPLOY.md](docs/DEPLOY.md).
+- **Flow** tab: the project's SDLC as a live, animated graph (Scrum loop, delivery pipeline,
+  Needs Human). Agents glide between stages, work items travel along the paths, rework and
+  escalations light up, and a live feed lists every move. **Replay** plays back the history;
+  **Replay journey** on a work item follows it through every stage with the time spent in each.
+- **Office** tab: a pixel-art office where every agent is a character dressed for its role
+  (roles added later get a generated outfit in their colour). Agents walk to their stations,
+  talk about their work in speech bubbles and a dialogue box, and react when poked; objects
+  react too. 8-bit sound effects, three original chiptune tracks and a game menu (music,
+  track, volumes, name tags, text speed). Sound and music are synthesised in the browser.
+- The API records the stages of every move and every Scrum ceremony start, tracks which
+  ceremony each agent is running (migration `0002_agent_ceremony`), lists every online agent
+  of a project, and serves the flow history with `GET /api/projects/:id/activity?kind=flow`.
+- A page that fails shows a recoverable message instead of a blank screen.
 
 ### Changed
 
 - The project tab "Claude" is now "Agent", and UI copy is client-neutral.
 - The backlog list shows the role that will build each item instead of the refining role.
 - Work-item drawers no longer focus the title field when opened.
+- The user guide has two new sections (The Flow view, The agent office); later sections are
+  renumbered, and links with the old numbers still open the right section.
 
 ### Fixed
 
 - Items parked in "Needs Human" during backlog refinement no longer join the next sprint.
 - "Agents online" counts agents, not projects with an agent.
 - Long agent and role names on cards wrap instead of being cut off.
+- Completing the kickoff now updates open boards without a reload.
+- Project update events no longer carry the access level of whoever made the change, so a
+  viewer never sees editing controls they cannot use.
+- Adding an item to the running sprint (or removing it) from its details is recorded as a
+  move, so the history and replays include it.
 
 ## [0.1.0] - 2026-10-03
 

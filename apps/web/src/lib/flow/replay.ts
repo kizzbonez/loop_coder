@@ -33,9 +33,11 @@ export interface FlowNow {
 
 /** Flow events, oldest first (the API returns newest first). */
 export function buildTimeline(activities: ActivityDTO[]): ActivityDTO[] {
+  // Entries of one transaction share a timestamp and come newest first; reversing before a
+  // stable sort keeps them in the order they were recorded.
   return activities
     .filter((a) => FLOW.has(a.action))
-    .slice()
+    .reverse()
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 }
 
@@ -125,26 +127,54 @@ export function applyEvent(snapshot: FlowSnapshot, a: ActivityDTO, isWorkItem: (
   }
 }
 
+/** Snapshots are kept every this many events; any moment is at most this many steps away. */
+export const CHECKPOINT_EVERY = 50;
+
+export interface Replay {
+  length: number;
+  /** The state after the first `index` events (0 = before any event). */
+  at: (index: number) => FlowSnapshot;
+}
+
 /**
- * Snapshots before each event: `result[i]` is the state just before `timeline[i]`, and the last
- * entry is the state after every event. Computed once so scrubbing is instant.
+ * Prepare a timeline for replay. Only every CHECKPOINT_EVERY-th state is stored, so memory stays
+ * small for long histories while jumping to any moment stays instant.
  */
+export function createReplay(
+  timeline: ActivityDTO[],
+  tasks: TaskDTO[],
+  columnKindOf: (columnId: string) => ColumnKind | undefined,
+  now?: FlowNow,
+): Replay {
+  const workItems = new Set(tasks.filter((t) => t.type !== 'epic').map((t) => t.id));
+  const isWorkItem = (id: string) => workItems.has(id);
+  const current = initialSnapshot(timeline, tasks, columnKindOf, now);
+  const checkpoints: FlowSnapshot[] = [cloneSnapshot(current)];
+  timeline.forEach((a, i) => {
+    applyEvent(current, a, isWorkItem);
+    if ((i + 1) % CHECKPOINT_EVERY === 0) checkpoints.push(cloneSnapshot(current));
+  });
+  return {
+    length: timeline.length,
+    at(index) {
+      const i = Math.max(0, Math.min(timeline.length, Math.floor(index)));
+      const base = Math.floor(i / CHECKPOINT_EVERY);
+      const snapshot = cloneSnapshot(checkpoints[base]!);
+      for (let k = base * CHECKPOINT_EVERY; k < i; k++) applyEvent(snapshot, timeline[k]!, isWorkItem);
+      return snapshot;
+    },
+  };
+}
+
+/** Every state of a timeline: `result[i]` is the state just before `timeline[i]`. */
 export function snapshots(
   timeline: ActivityDTO[],
   tasks: TaskDTO[],
   columnKindOf: (columnId: string) => ColumnKind | undefined,
   now?: FlowNow,
 ): FlowSnapshot[] {
-  const workItems = new Set(tasks.filter((t) => t.type !== 'epic').map((t) => t.id));
-  const isWorkItem = (id: string) => workItems.has(id);
-  let current = initialSnapshot(timeline, tasks, columnKindOf, now);
-  const result: FlowSnapshot[] = [current];
-  for (const a of timeline) {
-    current = cloneSnapshot(current);
-    applyEvent(current, a, isWorkItem);
-    result.push(current);
-  }
-  return result;
+  const replay = createReplay(timeline, tasks, columnKindOf, now);
+  return Array.from({ length: timeline.length + 1 }, (_, i) => replay.at(i));
 }
 
 /** Number of items in each stage of a snapshot. */

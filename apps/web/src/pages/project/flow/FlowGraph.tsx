@@ -8,6 +8,13 @@ import { isCeremony, routeFor, STATIC_EDGES, type FlowAgent, type FlowEdge, type
 import { EDGE_TONES, edgeTone, STAGE_ICONS } from './stage-meta';
 
 const TOKEN_MS_PER_EDGE = 1100;
+const REMEMBER = 500;
+
+/** Add to a set of seen keys, forgetting the oldest so it never grows without bound. */
+function remember(seen: Set<string>, key: string): void {
+  seen.add(key);
+  if (seen.size > REMEMBER) seen.delete(seen.values().next().value!);
+}
 const POP_MS = 700;
 
 interface Token {
@@ -91,8 +98,9 @@ export function FlowGraph({ state, layout, rolesByKey, selectedStage, onSelectSt
   useEffect(() => {
     let delay = 0;
     for (const a of state.animate) {
-      if (animated.current.has(a.id)) continue;
-      animated.current.add(a.id);
+      const key = state.animationKey(a);
+      if (animated.current.has(key)) continue;
+      remember(animated.current, key);
       const route = tokenRoute(a, state.phase);
       if (!route) {
         const target = pulseTarget(a);
@@ -133,7 +141,7 @@ export function FlowGraph({ state, layout, rolesByKey, selectedStage, onSelectSt
       });
       delay += 260;
     }
-  }, [state.animate, state.phase, layout, rolesByKey, reducedMotion, later, pop]);
+  }, [state, layout, rolesByKey, reducedMotion, later, pop]);
 
   const finishToken = useCallback(
     (token: Token) => {
@@ -418,9 +426,13 @@ function AgentMarker({
     if (!live || !agent.activity || agent.activity === lastActivity.current) return;
     lastActivity.current = agent.activity;
     setBubble(agent.activity);
+  }, [agent.activity, live]);
+  // Each bubble closes on its own timer, whatever the agent reports next.
+  useEffect(() => {
+    if (!bubble) return;
     const timer = setTimeout(() => setBubble(null), 5000);
     return () => clearTimeout(timer);
-  }, [agent.activity, live]);
+  }, [bubble]);
 
   const label = `${agent.name}${role ? ` · ${role.name}` : ''}`;
   // Bubbles open towards the side with room, so they never run off the canvas.

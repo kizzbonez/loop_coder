@@ -81,7 +81,7 @@ export function projectsRoutes(): Router {
     // ?kind=flow returns only the events that move work or agents through the SDLC (Flow view replay).
     const flow = req.query.kind === 'flow';
     const limit = queryInt(req.query.limit, 50, 1, flow ? 1000 : 200);
-    res.json({ items: listActivity(projectId, limit, beforeDate, flow ? FLOW_ACTIONS : undefined) });
+    res.json({ items: listActivity(projectId, { limit, before: beforeDate, actions: flow ? FLOW_ACTIONS : undefined }) });
   });
 
   router.get('/:id/agent-sessions', (req, res) => {

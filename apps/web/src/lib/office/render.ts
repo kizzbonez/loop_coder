@@ -2,6 +2,7 @@
 // multiplied by the painter's integer scale.
 import { drawCat, drawCharacter } from './characters';
 import { frame, hash, PALETTE, px, ROWS, shade, TILE, WORLD_H, WORLD_W, type Painter } from './pixels';
+import { TEXT_CPS } from './settings';
 import type { Bubble, Emote, OfficeSim, Walker } from './sim';
 import { FURNITURE, ZONES, type Furniture } from './world';
 
@@ -479,13 +480,12 @@ const BUBBLE_STYLE: Record<Bubble['tone'], { fill: string; border: string }> = {
   object: { fill: '#fff8e8', border: '#8c6d4f' },
 };
 
-const CHARS_PER_SECOND = { slow: 18, normal: 34, fast: 70, instant: 10_000 } as const;
-
 function drawBubble(p: Painter, sim: OfficeSim, b: Bubble, speed: RenderOptions['textSpeed']): void {
   const anchor = sim.anchorOf(b.ownerId);
   if (!anchor) return;
   const size = 6;
-  const shown = b.text.slice(0, Math.max(1, Math.floor((sim.now - b.started) * CHARS_PER_SECOND[speed])));
+  const cps = TEXT_CPS[speed];
+  const shown = Number.isFinite(cps) ? b.text.slice(0, Math.max(1, Math.floor((sim.now - b.started) * cps))) : b.text;
   const lines = wrap(p, b.text, 112, size).slice(0, 4);
   // Lay out with the full text so the bubble does not grow while typing.
   const width = Math.max(...lines.map((l) => measure(p, l, size))) + 8;

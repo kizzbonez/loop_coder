@@ -6,6 +6,7 @@ import type {
   CreateProjectInput,
   ProjectDetailDTO,
   ProjectDTO,
+  ProjectEvent,
   ProjectStatsDTO,
   RoleSource,
   UpdateColumnInput,
@@ -129,6 +130,15 @@ function projectWithWorkspace(exec: Executor, where: ReturnType<typeof eq> | und
     .from(projects)
     .innerJoin(workspaces, eq(workspaces.id, projects.workspaceId))
     .where(where);
+}
+
+/**
+ * The realtime event for a changed project. It goes to everyone watching the project, so it leaves
+ * out `myAccess` (that is the access level of whoever made the change, not of the viewer).
+ */
+export function projectUpdatedEvent(dto: ProjectDTO): ProjectEvent {
+  const { myAccess: _actorAccess, ...project } = dto;
+  return { type: 'project.updated', project };
 }
 
 export function getProjectDTO(actor: Actor, projectId: string, exec: Executor = db): ProjectDTO {
@@ -257,7 +267,7 @@ export function updateProject(actor: Actor, projectId: string, patch: UpdateProj
   });
 
   const dto = getProjectDTO(actor, projectId);
-  batch.add(projectId, { type: 'project.updated', project: dto });
+  batch.add(projectId, projectUpdatedEvent(dto));
   batch.flush();
 
   if (patch.agentState && patch.agentState !== before.agentState) {

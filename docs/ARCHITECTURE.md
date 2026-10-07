@@ -112,6 +112,38 @@ route. The stream sends a `hello` event with the server version, then `ProjectEv
 applies them directly to the React Query cache and refetches everything after a
 reconnect. Every stream re-checks the session and project access every 60 seconds.
 
+`project.updated` events never include `myAccess`: they go to every viewer of the project,
+and each viewer keeps their own access level. `agent.presence` carries the most recent agent
+and the list of agents online on the project (one per token), each with the item, role and
+Scrum ceremony it is working on.
+
+## Flow view and agent office
+
+Both tabs show the same model of the SDLC; they differ only in how it is drawn.
+
+```
+activity log (from/to stage, ceremony) ─┐
+board (tasks, columns)                  ├─ hooks/useFlowState ─┬─ pages/project/flow    SVG graph (FlowGraph)
+online agents (presence)                ┘   live or replay     └─ pages/project/office  canvas game (OfficeCanvas)
+```
+
+- `lib/flow` is pure TypeScript: `model.ts` (stages, paths, where each agent is),
+  `replay.ts` (rebuilds the board at any moment: undo the recorded moves from today's board
+  to find the start, then replay them forward; item journeys) and `layout.ts` (graph geometry
+  for wide and narrow screens, curved paths and the points tokens travel along).
+- The API records every move with its from/to stage and every ceremony start
+  (`ceremony.started`), and `GET /api/projects/:id/activity?kind=flow` returns just these
+  events (up to 1000) for the replay.
+- `lib/office` is the pixel game, also free of React: `world.ts` (map, furniture, role
+  stations, path finding), `characters.ts` (sprites drawn in code; identity from the agent's
+  name, outfit from the role; roles without a hand-made outfit get one derived from their key
+  and colour), `sim.ts` (walking, talking, poking, the cat), `render.ts` (draws a frame),
+  `chatter.ts` (activity and remarks → spoken lines), `audio.ts` and `music.ts` (Web Audio
+  synthesis and original chiptune loops; no audio files), `settings.ts` (validated
+  per-browser settings).
+- The canvas runs on `requestAnimationFrame` with an integer scale for crisp pixels. Sound
+  starts only after a user gesture and pauses while the tab is hidden.
+
 ## Versioning
 
 The root `package.json` version is the source of truth (`npm run release`). Docker builds

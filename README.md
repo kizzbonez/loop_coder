@@ -16,6 +16,13 @@ asks, and can pause it at any time.
   instructions are editable, and you can add your own roles.
 - **Realtime:** cards move, glow while the agent works on them (labelled with its name, e.g.
   "Claude Code" or "Cursor"), and stream activity as it happens.
+- **Flow view:** the SDLC as a live, animated graph. Agents glide between stages, work items
+  travel along the paths, rework and escalations light up, and you can replay the whole history
+  or one item's journey with the time it spent in each stage.
+- **Agent office:** the same live data as a pixel-art game. Each agent is a character dressed
+  for the role it plays (roles you add get their own look), walks to its station, talks about
+  its work in speech bubbles, and reacts when you poke it. It has 8-bit sound effects, original
+  chiptune music and a game menu.
 - **Admin console:** users, workspaces, agent roles, settings, tokens, agent sessions, audit
   log, system info, one-click database backup.
 - **Secure by default:** hardened containers, strict CSP, CSRF protection, hashed secrets,
@@ -25,6 +32,13 @@ asks, and can pause it at any time.
 📘 **New here? Read the illustrated [user guide](docs/USER_GUIDE.md).**
 
 ![The board while two agents work on it](docs/images/guide/12-board.png)
+
+### See the agents at work
+
+| Flow view | Agent office |
+|---|---|
+| ![The Flow view: agents and work items moving through the SDLC](docs/images/guide/35-flow.png) | ![The agent office: pixel characters at their role stations, talking about their work](docs/images/guide/37-office.png) |
+| Live SDLC graph with replay and item journeys. | Pixel-art office with speech bubbles, sound and music. |
 
 ```mermaid
 flowchart LR

@@ -33,8 +33,8 @@ test('the user guide opens from the sidebar on its overview page', async ({ page
   await expect(page.getByRole('heading', { name: /results? for “kill switch”/ })).toBeVisible();
   await expect(page.locator('mark', { hasText: /kill switch/i }).first()).toBeVisible();
   const results = page.locator('section', { has: page.getByRole('heading', { name: /results? for/ }) });
-  await results.locator('a[href="/guide/15-administration"]').click();
-  await expect(page).toHaveURL(/\/guide\/15-administration$/);
+  await results.locator('a[href="/guide/17-administration"]').click();
+  await expect(page).toHaveURL(/\/guide\/17-administration$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Administration' })).toBeVisible();
 });
 
@@ -105,8 +105,8 @@ test('on a phone the guide uses a section picker', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/guide/1-key-ideas');
   await expect(guideNav(page)).toBeHidden();
-  await page.getByRole('combobox', { name: 'Jump to section' }).selectOption('11-sprints');
-  await expect(page).toHaveURL(/\/guide\/11-sprints$/);
+  await page.getByRole('combobox', { name: 'Jump to section' }).selectOption('13-sprints');
+  await expect(page).toHaveURL(/\/guide\/13-sprints$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Sprints' })).toBeVisible();
 });
 

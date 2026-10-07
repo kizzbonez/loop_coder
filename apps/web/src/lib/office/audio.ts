@@ -74,6 +74,16 @@ export class OfficeAudio {
     if (!settings.music) this.stopMusic();
   }
 
+  /** Pause everything (e.g. while the tab is hidden, where timers are throttled). */
+  suspend(): void {
+    if (this.ctx?.state === 'running') void this.ctx.suspend();
+  }
+
+  /** Resume after `suspend`; does nothing until the user has unlocked sound once. */
+  resume(): void {
+    if (this.ctx?.state === 'suspended') void this.ctx.resume();
+  }
+
   dispose(): void {
     this.stopMusic();
     void this.ctx?.close();

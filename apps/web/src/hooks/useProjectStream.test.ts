@@ -69,7 +69,7 @@ describe('applyProjectEvent', () => {
   it('updates agent presence, project fields and columns', () => {
     const agents = [{ id: 's1', agentName: 'Cursor' }] as ProjectDetailDTO['agents'];
     applyProjectEvent(qc, P, { type: 'agent.presence', agent: { online: true, currentActivity: 'Testing' } as ProjectDetailDTO['agent'], agents });
-    applyProjectEvent(qc, P, { type: 'project.updated', project: { agentState: 'paused', myAccess: 'owner' } as ProjectDetailDTO });
+    applyProjectEvent(qc, P, { type: 'project.updated', project: { agentState: 'paused' } as ProjectDetailDTO });
     applyProjectEvent(qc, P, { type: 'columns.updated', columns: [{ id: 'c1' }] as ProjectDetailDTO['columns'] });
     const project = qc.getQueryData<ProjectDetailDTO>(keys.project(P))!;
     expect(project.agent.online).toBe(true);
@@ -77,7 +77,7 @@ describe('applyProjectEvent', () => {
     expect(project.agentState).toBe('paused');
     expect(project.columns).toHaveLength(1);
     expect(project.name).toBe('Shop');
-    expect(project.myAccess).toBe('viewer'); // never the access level of whoever changed it
+    expect(project.myAccess).toBe('viewer');
   });
 
   it('tracks the active sprint', () => {

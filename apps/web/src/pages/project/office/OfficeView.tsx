@@ -1,7 +1,7 @@
 import '@fontsource/pixelify-sans/400.css';
 import '@fontsource/pixelify-sans/600.css';
 import clsx from 'clsx';
-import { Gamepad2, History, Menu as MenuIcon, Radio, Volume2, VolumeX } from 'lucide-react';
+import { Gamepad2, Menu as MenuIcon, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Button } from '../../../components/ui/Button';
@@ -14,8 +14,10 @@ import { loadSettings, saveSettings, type OfficeSettings } from '../../../lib/of
 import { OfficeSim } from '../../../lib/office/sim';
 import { useActivity, useLiveRemarks } from '../../../lib/queries';
 import { useBoardLookups, useProjectContext } from '../context';
-import { ReplayBar } from '../flow/ReplayBar';
-import { DialogueBox, PixelAvatar } from './DialogueBox';
+import { ModeToggle } from '../../../components/flow/ModeToggle';
+import { ReplayBar } from '../../../components/flow/ReplayBar';
+import { DialogueBox } from './DialogueBox';
+import { PixelAvatar } from './PixelAvatar';
 import { GameMenu } from './GameMenu';
 import { OfficeCanvas } from './OfficeCanvas';
 
@@ -45,7 +47,15 @@ export function OfficeView() {
 
   const sim = useMemo(() => new OfficeSim(hash(project.id)), [project.id]);
   const audio = useMemo(() => new OfficeAudio(), []);
-  useEffect(() => () => audio.dispose(), [audio]);
+  useEffect(() => {
+    // Hidden tabs throttle timers, which would make the music stutter: pause until visible again.
+    const onVisibility = () => (document.hidden ? audio.suspend() : audio.resume());
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      audio.dispose();
+    };
+  }, [audio]);
   useEffect(() => {
     audio.apply(settings);
     sim.textSpeed = settings.textSpeed;
@@ -103,6 +113,8 @@ export function OfficeView() {
     if (fresh.length === 0) return;
     for (const line of fresh) {
       spoken.current.add(line.id);
+      // Forget the oldest ids so the set stays small during long sessions.
+      if (spoken.current.size > 1000) spoken.current.delete(spoken.current.values().next().value!);
       sim.say(line.speaker, line.text, line.tone);
       if (line.cue) audio.play(line.cue);
     }
@@ -153,26 +165,7 @@ export function OfficeView() {
           >
             Menu
           </Button>
-          <div className="flex rounded-lg bg-surface-2 p-0.5 text-[13px]" role="radiogroup" aria-label="Office mode">
-            {(
-              [
-                [false, 'Live', Radio],
-                [true, 'Replay', History],
-              ] as const
-            ).map(([mode, label, Icon]) => (
-              <button
-                key={label}
-                type="button"
-                role="radio"
-                aria-checked={replaying === mode}
-                onClick={() => setReplay(mode)}
-                className={clsx('flex items-center gap-1.5 rounded-md px-3 py-1 transition', replaying === mode ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg')}
-              >
-                <Icon className={clsx('size-3.5', !mode && replaying === mode && 'text-success')} />
-                {label}
-              </button>
-            ))}
-          </div>
+          <ModeToggle label="Office mode" replaying={replaying} onChange={setReplay} />
         </div>
       </div>
 

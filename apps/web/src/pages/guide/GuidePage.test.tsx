@@ -78,8 +78,8 @@ describe('GuidePage', () => {
 
   it('switches sections from the mobile picker', async () => {
     renderGuide('/guide/1-key-ideas');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Jump to section' }), '11-sprints');
-    expect(location()).toBe('/guide/11-sprints');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Jump to section' }), '13-sprints');
+    expect(location()).toBe('/guide/13-sprints');
     expect(screen.getByRole('heading', { level: 1, name: 'Sprints' })).toBeTruthy();
   });
 
@@ -92,6 +92,12 @@ describe('GuidePage', () => {
   it('redirects old sub-heading anchors to the section that holds them', () => {
     renderGuide('/guide#step-1-create-a-project-token');
     expect(location()).toBe('/guide/6-connecting-your-ai-agent#step-1-create-a-project-token');
+  });
+
+  it('sends links from before a renumbering to the right section', () => {
+    renderGuide('/guide/11-sprints');
+    expect(location()).toBe('/guide/13-sprints');
+    expect(screen.getByRole('heading', { level: 1, name: 'Sprints' })).toBeTruthy();
   });
 
   it('shows a friendly message for an unknown section', () => {

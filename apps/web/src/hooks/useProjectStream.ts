@@ -33,8 +33,8 @@ export function applyProjectEvent(qc: QueryClient, projectId: string, event: Pro
       );
       break;
     case 'project.updated':
-      // The event carries the access level of whoever made the change; keep this viewer's own.
-      qc.setQueryData<ProjectDetailDTO>(keys.project(projectId), (old) => (old ? { ...old, ...event.project, myAccess: old.myAccess } : old));
+      // Events never carry an access level; each viewer keeps their own.
+      qc.setQueryData<ProjectDetailDTO>(keys.project(projectId), (old) => (old ? { ...old, ...event.project } : old));
       break;
     case 'project.deleted':
       void qc.invalidateQueries({ queryKey: keys.project(projectId) });

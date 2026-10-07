@@ -16,7 +16,8 @@ import { EventBatch } from '../../realtime/bus';
 import { actorLabel, agentNameOf, recordActivity } from '../activity/activity.service';
 import { requireProjectAccess } from '../projects/access';
 import { columnByKind, getColumns, getProjectRow } from '../projects/projects.query';
-import { getProjectDTO } from '../projects/projects.service';
+import { currentCeremonyOf } from '../presence/presence.service';
+import { getProjectDTO, projectUpdatedEvent } from '../projects/projects.service';
 import { listRoles } from '../roles/roles.service';
 import { getSettings } from '../settings/settings.service';
 import { completeSprintTx, insertSprint, startSprintTx } from '../sprints/sprints.service';
@@ -177,12 +178,14 @@ const CEREMONY_NAMES: Record<Ceremony, string> = {
   sprint_review: 'the sprint review',
 };
 
-/** Claim a ceremony for this agent; a new claim is recorded so the Flow view can follow it. */
+/**
+ * Claim a ceremony for this agent. Starting a ceremony the agent was not already running is
+ * recorded, so the Flow view can follow it (asking again mid-ceremony, or renewing an expired
+ * claim, is not a new start).
+ */
 function claimCeremony(tx: Tx, batch: EventBatch, actor: Actor, project: ProjectRow, ceremony: Ceremony, role: AgentRoleRow): void {
   const claimant = claimantOf(actor);
-  const t = now();
-  const alreadyMine = project.ceremonyClaimBy === claimant && project.ceremonyClaimExpiresAt != null && project.ceremonyClaimExpiresAt > t;
-  if (!alreadyMine) {
+  if (currentCeremonyOf(actor, project.id, tx) !== ceremony) {
     recordActivity(tx, batch, {
       projectId: project.id,
       actor,
@@ -589,7 +592,7 @@ export function completeKickoff(actor: Actor, projectId: string, summary: string
       message: `${actorLabel(actor, 'Project Manager')} completed the kickoff: ${summary}`.slice(0, 500),
     });
     // Boards and the Flow view switch from "kickoff" to "planning" without a reload.
-    batch.add(projectId, { type: 'project.updated', project: getProjectDTO(actor, projectId, tx) });
+    batch.add(projectId, projectUpdatedEvent(getProjectDTO(actor, projectId, tx)));
   });
   batch.flush();
 }

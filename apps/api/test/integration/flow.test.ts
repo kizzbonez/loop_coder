@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Express } from 'express';
 import type { ActivityDTO, OnlineAgentDTO, ProjectDetailDTO } from '@loop/shared';
 import { FLOW_ACTIONS } from '@loop/shared';
+import type { ProjectEvent } from '@loop/shared';
+import { subscribe } from '../../src/realtime/bus';
 import { createProject, createToken, createUser, freshApp, mcpClient, setupAdmin, type Agent } from '../helpers';
 
 let app: Express;
@@ -102,10 +104,52 @@ describe('Flow view data', () => {
     expect([...times].sort((x, y) => y - x)).toEqual(times);
   });
 
+  it('records joining and leaving the running sprint as moves', async () => {
+    const sprint = (await human.post(`/api/projects/${projectId}/sprints`).send({ name: 'S1', goal: 'Go' }).expect(201)).body;
+    await human.post(`/api/sprints/${sprint.id}/start`).expect(200);
+    const item = (await human.post(`/api/projects/${projectId}/tasks`).send({ title: 'Late addition' }).expect(201)).body;
+    await human.patch(`/api/tasks/${item.id}`).send({ sprintId: sprint.id }).expect(200);
+    await human.patch(`/api/tasks/${item.id}`).send({ sprintId: null }).expect(200);
+    const moves = (await flowActivity()).filter((a) => a.taskId === item.id && a.action === 'task.moved');
+    expect(moves.map((a) => [a.fromKind, a.toKind])).toEqual([
+      ['todo', 'backlog'],
+      ['backlog', 'todo'],
+    ]); // newest first
+  });
+
+  it('records a ceremony start once per ceremony, even when asked again or after a claim expires', async () => {
+    const claude = mcpClient(app, await createToken(human));
+    await claude.initialize('claude-code');
+    await claude.ok('get_next_work', P);
+    await claude.ok('get_next_work', P);
+    await claude.ok('get_next_work', P);
+    expect((await flowActivity()).filter((a) => a.action === 'ceremony.started')).toHaveLength(1);
+  });
+
   it('allows longer flow histories but still caps the limit', async () => {
     await human.get(`/api/projects/${projectId}/activity?kind=flow&limit=1000`).expect(200);
     await human.get(`/api/projects/${projectId}/activity?kind=flow&limit=99999`).expect(200);
     await human.get(`/api/projects/${projectId}/activity?kind=other&limit=5000`).expect(200);
+  });
+
+  it('never broadcasts the access level of whoever changed the project', async () => {
+    const events: ProjectEvent[] = [];
+    const stop = subscribe(projectId, (e) => events.push(e));
+    try {
+      await human.patch(`/api/projects/${projectId}`).send({ agentState: 'paused' }).expect(200);
+      await human.patch(`/api/projects/${projectId}`).send({ agentState: 'active' }).expect(200);
+      const claude = mcpClient(app, await createToken(human));
+      await claude.initialize('claude-code');
+      await claude.ok('get_next_work', P);
+      await claude.ok('create_work_items', { ...P, items: [{ title: 'A' }] });
+      await claude.ok('complete_kickoff', { ...P, summary: 'ok' });
+    } finally {
+      stop();
+    }
+    const updates = events.filter((e) => e.type === 'project.updated');
+    expect(updates.length).toBeGreaterThanOrEqual(3);
+    for (const e of updates) expect(e.type === 'project.updated' && 'myAccess' in e.project).toBe(false);
+    expect(updates.at(-1)).toMatchObject({ project: { kickoffCompletedAt: expect.any(String) } });
   });
 
   it('keeps flow history private to project members', async () => {
