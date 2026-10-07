@@ -1,6 +1,7 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ActivityDTO,
+  RemarkDTO,
   AdminStatsDTO,
   AgentRoleDTO,
   AgentRoleInput,
@@ -62,6 +63,7 @@ export const keys = {
   burndown: (sprintId: string) => ['sprint', sprintId, 'burndown'] as const,
   activity: (projectId: string) => ['project', projectId, 'activity'] as const,
   flow: (projectId: string) => ['project', projectId, 'flow'] as const,
+  liveRemarks: (projectId: string) => ['project', projectId, 'live-remarks'] as const,
   agentSessions: (projectId: string) => ['project', projectId, 'agent-sessions'] as const,
   files: (projectId: string, path: string) => ['project', projectId, 'files', path] as const,
   file: (projectId: string, path: string) => ['project', projectId, 'file', path] as const,
@@ -222,6 +224,17 @@ export const useFlowActivity = (projectId: string) =>
     queryKey: keys.flow(projectId),
     queryFn: async () => (await api.get<Items<ActivityDTO>>(`/projects/${projectId}/activity?kind=flow&limit=${FLOW_HISTORY_LIMIT}`)).items,
   });
+
+/** Remarks that arrived over the live stream since the page opened (newest first). */
+export function useLiveRemarks(projectId: string) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: keys.liveRemarks(projectId),
+    // Nothing to fetch: the project stream fills this cache, and a refetch must not wipe it.
+    queryFn: () => qc.getQueryData<RemarkDTO[]>(keys.liveRemarks(projectId)) ?? [],
+    staleTime: Infinity,
+  });
+}
 
 export const useAgentSessions = (projectId: string) =>
   useQuery({

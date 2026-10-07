@@ -431,6 +431,37 @@
   }
 }
 
+/* Agent office (pixel game) */
+@layer components {
+  .pixel-canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #1f1b2e;
+  }
+  .office-font {
+    font-family: 'Pixelify Sans', ui-monospace, monospace;
+  }
+  .pixel-box {
+    background: #fffaf0;
+    color: #1f1b2e;
+    border: 3px solid #1f1b2e;
+    border-radius: 6px;
+    box-shadow:
+      inset 0 0 0 3px #f3e6c4,
+      inset 0 0 0 5px #1f1b2e,
+      0 6px 0 -1px rgb(31 27 46 / 0.25);
+  }
+  .pixel-blink {
+    animation: pixel-blink 1s steps(1) infinite;
+  }
+}
+
+@keyframes pixel-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 @keyframes flow-dash-11 {
   to {
     stroke-dashoffset: -22;
@@ -506,7 +537,8 @@
   .flow-glow,
   .flow-attention,
   .flow-ping,
-  .flow-live-dot {
+  .flow-live-dot,
+  .pixel-blink {
     animation: none;
   }
   *,

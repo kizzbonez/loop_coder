@@ -1,11 +1,12 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { FLOW_ACTIONS, type ActivityDTO, type ProjectDetailDTO, type ProjectEvent, type TaskDetailDTO, type TaskDTO } from '@loop/shared';
+import { FLOW_ACTIONS, type ActivityDTO, type ProjectDetailDTO, type ProjectEvent, type RemarkDTO, type TaskDetailDTO, type TaskDTO } from '@loop/shared';
 import { FLOW_HISTORY_LIMIT, keys, upsertTaskInCache } from '../lib/queries';
 
 export type StreamStatus = 'connecting' | 'live' | 'reconnecting';
 
 const MAX_ACTIVITY = 300;
+const MAX_LIVE_REMARKS = 50;
 const FLOW = new Set<string>(FLOW_ACTIONS);
 
 const prepend = (activity: ActivityDTO, max: number) => (old: ActivityDTO[] | undefined) =>
@@ -26,6 +27,9 @@ export function applyProjectEvent(qc: QueryClient, projectId: string, event: Pro
         old && !old.remarks.some((r) => r.id === event.remark.id)
           ? { ...old, remarks: [...old.remarks, event.remark], remarkCount: old.remarks.length + 1 }
           : old,
+      );
+      qc.setQueryData<RemarkDTO[]>(keys.liveRemarks(projectId), (old) =>
+        old && !old.some((r) => r.id === event.remark.id) ? [event.remark, ...old].slice(0, MAX_LIVE_REMARKS) : old,
       );
       break;
     case 'project.updated':
