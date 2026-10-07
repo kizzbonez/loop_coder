@@ -13,7 +13,8 @@ const { version } = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8
 function gitSha() {
   try {
     const sha = execSync('git rev-parse --short=12 HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-    const dirty = execSync('git status --porcelain', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    // Only changes to tracked files count; editor files and other untracked files do not.
+    const dirty = execSync('git status --porcelain --untracked-files=no', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
     return dirty ? `${sha}-dirty` : sha;
   } catch {
     return 'unknown';
