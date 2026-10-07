@@ -39,6 +39,11 @@ for (const file of MANIFESTS) {
   const path = resolve(root, file);
   const pkg = JSON.parse(readFileSync(path, 'utf8'));
   pkg.version = to;
+  // Workspace packages depend on each other with a caret range; on 0.x a minor bump falls
+  // outside it (^0.1.0 excludes 0.2.0), so move those ranges along with the version.
+  for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
+    for (const name of Object.keys(pkg[field] ?? {})) if (name.startsWith('@loop/')) pkg[field][name] = `^${to}`;
+  }
   writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
