@@ -4,14 +4,16 @@ import clsx from 'clsx';
 import { Gamepad2, Menu as MenuIcon, Volume2, VolumeX } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import { SYSTEM_ROLE_KEYS } from '@loop/shared';
 import { Button } from '../../../components/ui/Button';
 import { PageLoader } from '../../../components/ui/misc';
 import { useFlowState } from '../../../hooks/useFlowState';
 import { OfficeAudio } from '../../../lib/office/audio';
+import { roleCharacter } from '../../../lib/office/characters';
 import { lineFromActivity, lineFromRemark, type ChatLine } from '../../../lib/office/chatter';
 import { hash } from '../../../lib/office/pixels';
 import { loadSettings, saveSettings, type OfficeSettings } from '../../../lib/office/settings';
-import { OfficeSim } from '../../../lib/office/sim';
+import { OfficeSim, type CastRole } from '../../../lib/office/sim';
 import { useActivity, useLiveRemarks } from '../../../lib/queries';
 import { useBoardLookups, useProjectContext } from '../context';
 import { ModeToggle } from '../../../components/flow/ModeToggle';
@@ -63,9 +65,24 @@ export function OfficeView() {
   }, [audio, sim, settings]);
 
   const rolesByKey = lookups.rolesByKey;
+  const agentsOnline = state.agents;
   const stageName = useCallback((kind: string) => state.stages.get(kind as never)?.label ?? kind, [state.stages]);
 
-  // Agents and board numbers → the office.
+  // One character per enabled role: built-in roles in team order, then roles added later.
+  const cast = useMemo<CastRole[]>(() => {
+    const rank = (key: string) => {
+      const i = (SYSTEM_ROLE_KEYS as readonly string[]).indexOf(key);
+      return i === -1 ? SYSTEM_ROLE_KEYS.length : i;
+    };
+    return roles
+      .filter((r) => r.enabled)
+      .sort((a, b) => rank(a.key) - rank(b.key) || a.name.localeCompare(b.name))
+      .map((r) => ({ key: r.key, name: r.name, color: r.color }));
+  }, [roles]);
+  const castByKey = useMemo(() => new Map(cast.map((r) => [r.key, r])), [cast]);
+  useEffect(() => sim.setCast(cast), [sim, cast]);
+
+  // Agents and board numbers → the office: each agent plays the character of its current role.
   useEffect(() => {
     sim.stats = Object.fromEntries(state.counts);
     sim.sync(
@@ -78,9 +95,8 @@ export function OfficeView() {
         working: a.working,
         taskKey: a.taskKey,
       })),
-      rolesByKey,
     );
-  }, [sim, state.agents, state.counts, rolesByKey]);
+  }, [sim, state.agents, state.counts, rolesByKey, cast]);
 
   // Lines to speak: live activity and remarks (or the replayed events), each said once.
   const lines = useMemo(() => {
@@ -115,7 +131,7 @@ export function OfficeView() {
       spoken.current.add(line.id);
       // Forget the oldest ids so the set stays small during long sessions.
       if (spoken.current.size > 1000) spoken.current.delete(spoken.current.values().next().value!);
-      sim.say(line.speaker, line.text, line.tone);
+      sim.say({ ...line.speaker, roleKey: line.roleKey }, line.text, line.tone);
       if (line.cue) audio.play(line.cue);
     }
     setLog((old) => [...fresh.reverse(), ...old].slice(0, LOG_SIZE));
@@ -182,7 +198,7 @@ export function OfficeView() {
             line={current}
             speed={settings.textSpeed}
             audio={audio}
-            roleColor={current?.roleKey ? rolesByKey.get(current.roleKey)?.color : undefined}
+            role={current?.roleKey ? castByKey.get(current.roleKey) : undefined}
           />
           {state.replaying && (
             <div className="-mx-3 mt-3 -mb-3">
@@ -208,29 +224,36 @@ export function OfficeView() {
         <aside className="grid content-start gap-4 md:grid-cols-2 min-[1500px]:grid-cols-1">
           <section className="card overflow-hidden">
             <header className="border-b border-line px-4 py-2.5">
-              <h3 className="text-[13px] font-semibold">In the office · {state.agents.length}</h3>
+              <h3 className="text-[13px] font-semibold">Team · {cast.length}</h3>
+              <p className="mt-0.5 text-xs text-muted">
+                {agentsOnline.length === 0
+                  ? 'No agent connected. Connect one and it takes over the role it plays.'
+                  : `Agents: ${[...new Set(agentsOnline.map((a) => a.name))].join(', ')}`}
+              </p>
             </header>
-            {state.agents.length === 0 ? (
-              <p className="px-4 py-5 text-[13px] text-muted">Nobody is here yet. Connect an agent and it will walk in through the door.</p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {state.agents.map((a) => {
-                  const role = a.roleKey ? rolesByKey.get(a.roleKey) : undefined;
-                  return (
-                    <li key={a.id} className="flex items-center gap-3 px-4 py-2.5">
-                      <PixelAvatar name={a.name} roleKey={a.roleKey} roleColor={role?.color} size={2} />
-                      <div className="min-w-0 text-[13px]">
-                        <p className="font-semibold">{a.name}</p>
-                        <p className="text-xs text-muted">
-                          {role?.name ?? 'Between tasks'} · {stageName(a.stage)}
-                          {a.taskKey && <span className="font-mono"> · {a.taskKey}</span>}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <ul className="max-h-[420px] divide-y divide-line overflow-y-auto">
+              {cast.map((role) => {
+                const players = state.agents.filter((a) => a.working && a.roleKey === role.key);
+                return (
+                  <li key={role.key} className={clsx('flex items-center gap-3 px-4 py-2', players.length > 0 && 'bg-accent-soft/60')}>
+                    <PixelAvatar look={roleCharacter(role)} size={2} />
+                    <div className="min-w-0 text-[13px]">
+                      <p className="font-semibold">{role.name}</p>
+                      <p className="text-xs text-muted">
+                        {players.length === 0
+                          ? 'At their desk'
+                          : players.map((a) => (
+                              <span key={a.id} className="mr-2 inline-block">
+                                <span className="font-medium text-accent">{a.name}</span> · {stageName(a.stage)}
+                                {a.taskKey && <span className="font-mono"> · {a.taskKey}</span>}
+                              </span>
+                            ))}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
           <section className="card overflow-hidden">
             <header className="border-b border-line px-4 py-2.5">

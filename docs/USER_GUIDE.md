@@ -350,18 +350,28 @@ the help desk (Needs Human) and a lounge for idle agents.
 
 ![The agent office](images/guide/37-office.png)
 
-- Every connected agent is a character with a name tag. It walks to the station of the role it
-  is playing: engineers to the desks, the architect to the whiteboard, the designer to the
-  easel, QA to the lab bench, and so on. When it switches role it changes clothes. Roles your
-  administrator adds later get their own outfit in the role's colour.
-- Agents **talk** in speech bubbles as they work: progress updates, work logs, review notes,
-  test reports and questions. The latest line also types out in the dialogue box under the
-  map, and **Office chatter** keeps every line. When you answer a question, you appear at the
-  help desk.
+- The office has **one character per role**, each with its own desk and look: the Project
+  Manager and the Technical Writer in the backlog library, the engineers, the architect (at the
+  whiteboard) and the designer (at the easel) in the workshop, DevOps and Security in the ops
+  corner, the Code Reviewer in the review room and QA in the lab. Roles your administrator adds
+  later join the team at a free desk, dressed in the role's colour.
+- When an agent works in a role, it **plays that character**: the character walks to where the
+  work is, types at its desk, and gets a second name tag with the agent's name. When the agent
+  moves on to another role, the next character takes over and the previous one goes back to its
+  desk. If two agents play the same role at once, a colleague walks in to help.
+- Characters **talk** in speech bubbles as they work: progress updates, work logs, review notes,
+  test reports and questions. The latest line also types out in the dialogue box under the map,
+  and **Office chatter** keeps every line. A character with a question for you waits at the help
+  desk. When you answer, you appear behind the desk.
+- Characters with nothing to do have a life of their own: they play on the console or the
+  arcade machine, fetch a coffee, or meet colleagues for a chat (you can read the conversation in
+  their speech bubbles). During kickoff, sprint planning and sprint review the whole team meets
+  in the meeting room.
+- The **Team** panel lists every role, which agent is playing it and on which item.
 - The sprint board on the wall, the trophy shelf at the ship dock and the blinking help sign
   show the real numbers from the board.
-- **Click anyone or anything.** Agents tell you what they are doing, and get annoyed if you
-  keep poking them. The rubber duck, the coffee machine, the plant, the printer, the cat, the
+- **Click anyone or anything.** Characters tell you what they are doing (from "No bugs to hunt
+  right now" to "Shh, boss level!") and get annoyed if you keep poking them. The rubber duck, the coffee machine, the plant, the printer, the cat, the
   help desk bell, the release gong and the server rack all react. With the keyboard, focus the
   map, choose with the arrow keys and press Enter.
 

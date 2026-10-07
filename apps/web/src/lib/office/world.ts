@@ -49,7 +49,9 @@ export type FurnitureKind =
   | 'duckDesk'
   | 'trophies'
   | 'gong'
-  | 'crates';
+  | 'crates'
+  | 'tv'
+  | 'arcade';
 
 export interface Furniture extends TileRect {
   id: string;
@@ -76,6 +78,8 @@ export const FURNITURE: readonly Furniture[] = [
   { id: 'review-desk', kind: 'desk', x: 23, y: 10, w: 2, h: 1, station: 'review' },
   { id: 'qa-bench', kind: 'bench', x: 27, y: 10, w: 3, h: 1 },
   { id: 'lounge-plant', kind: 'plant', x: 1, y: 14, w: 1, h: 1 },
+  { id: 'tv', kind: 'tv', x: 2, y: 14, w: 2, h: 1 },
+  { id: 'arcade', kind: 'arcade', x: 5, y: 14, w: 1, h: 1 },
   { id: 'sofa', kind: 'sofa', x: 2, y: 16, w: 3, h: 1 },
   { id: 'coffee', kind: 'coffee', x: 7, y: 14, w: 1, h: 1 },
   { id: 'water', kind: 'water', x: 8, y: 14, w: 1, h: 1 },
@@ -116,7 +120,15 @@ const row = (y: number, xs: number[], face: Dir): Spot[] => xs.map((x) => ({ x, 
 export const STATIONS: Readonly<Record<StationId, readonly Spot[]>> = {
   pm_desk: row(6, [2, 3], 'up'),
   writer_desk: row(6, [5, 6], 'up'),
-  meeting: [...row(3, [11, 13, 15], 'down'), ...row(6, [12, 14, 11, 15], 'up')],
+  // The host's seat first, then the rest of the team around the table.
+  meeting: [
+    ...row(3, [13, 11, 15, 12, 14], 'down'),
+    ...row(6, [13, 11, 15, 12, 14], 'up'),
+    { x: 10, y: 4, face: 'right' },
+    { x: 16, y: 4, face: 'left' },
+    { x: 10, y: 5, face: 'right' },
+    { x: 16, y: 5, face: 'left' },
+  ],
   kanban: row(2, [20, 21, 19, 22], 'up'),
   helpdesk: row(5, [26, 28, 27], 'up'),
   dev_desk: row(11, [2, 5, 8, 3, 6, 9], 'up'),
@@ -130,6 +142,47 @@ export const STATIONS: Readonly<Record<StationId, readonly Spot[]>> = {
   lounge: [...row(15, [2, 3, 4], 'down'), ...row(15, [6, 7], 'down')],
   door: row(16, [15, 16], 'up'),
 };
+
+/** What characters do while their role has no work ("help": waiting at the help desk for your answer). */
+export type PastimeKind = 'coffee' | 'console' | 'arcade' | 'chat' | 'help';
+
+/** Where each pastime happens. */
+export const PASTIME_SPOTS: Readonly<Record<Exclude<PastimeKind, 'chat'>, readonly Spot[]>> = {
+  coffee: [
+    { x: 7, y: 15, face: 'up' },
+    { x: 8, y: 15, face: 'up' },
+  ],
+  console: row(15, [2, 3], 'up'),
+  arcade: [{ x: 5, y: 15, face: 'up' }],
+  help: row(5, [26, 28, 27], 'up'),
+};
+
+/** Corners where two or three idle characters meet for a chat, facing each other. */
+export const CHAT_CORNERS: ReadonlyArray<readonly Spot[]> = [
+  [
+    { x: 6, y: 8, face: 'right' },
+    { x: 8, y: 8, face: 'left' },
+    { x: 7, y: 7, face: 'down' },
+  ],
+  [
+    { x: 20, y: 13, face: 'right' },
+    { x: 22, y: 13, face: 'left' },
+    { x: 21, y: 12, face: 'down' },
+  ],
+  [
+    { x: 10, y: 15, face: 'right' },
+    { x: 12, y: 15, face: 'left' },
+    { x: 11, y: 16, face: 'up' },
+  ],
+];
+
+/** Free desks for roles without a workplace of their own (roles added later). */
+export const HOT_DESKS: readonly Spot[] = [
+  ...row(11, [5, 8, 3, 6, 9], 'up'),
+  { x: 6, y: 6, face: 'up' },
+  { x: 3, y: 6, face: 'up' },
+  ...row(11, [24, 21, 18, 28, 15, 12], 'up'),
+];
 
 /** Where a person who answers the agent stands: behind the help desk. */
 export const HELPDESK_STAFF: Spot = { x: 27, y: 3, face: 'down' };
@@ -236,7 +289,7 @@ export function zoneTiles(zoneId: string): Array<{ x: number; y: number }> {
 // Things to click
 // ---------------------------------------------------------------------------
 
-export type ObjectKind = 'duck' | 'coffee' | 'plant' | 'printer' | 'water' | 'bell' | 'gong' | 'server' | 'kanban' | 'trophies';
+export type ObjectKind = 'duck' | 'coffee' | 'plant' | 'printer' | 'water' | 'bell' | 'gong' | 'server' | 'kanban' | 'trophies' | 'tv' | 'arcade';
 
 export interface OfficeObject extends TileRect {
   id: string;
@@ -249,6 +302,8 @@ export const OBJECTS: readonly OfficeObject[] = [
   { id: 'coffee', kind: 'coffee', label: 'Coffee machine', x: 7, y: 14, w: 1, h: 1 },
   { id: 'water', kind: 'water', label: 'Water cooler', x: 8, y: 14, w: 1, h: 1 },
   { id: 'lounge-plant', kind: 'plant', label: 'Office plant', x: 1, y: 14, w: 1, h: 1 },
+  { id: 'tv', kind: 'tv', label: 'Game console', x: 2, y: 14, w: 2, h: 1 },
+  { id: 'arcade', kind: 'arcade', label: 'Arcade cabinet', x: 5, y: 14, w: 1, h: 1 },
   { id: 'printer', kind: 'printer', label: 'Printer', x: 11, y: 14, w: 1, h: 1 },
   { id: 'bell', kind: 'bell', label: 'Help desk bell', x: 27, y: 4, w: 1, h: 1 },
   { id: 'gong', kind: 'gong', label: 'Release gong', x: 29, y: 14, w: 1, h: 1 },

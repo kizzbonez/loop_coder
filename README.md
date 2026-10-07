@@ -19,10 +19,11 @@ asks, and can pause it at any time.
 - **Flow view:** the SDLC as a live, animated graph. Agents glide between stages, work items
   travel along the paths, rework and escalations light up, and you can replay the whole history
   or one item's journey with the time it spent in each stage.
-- **Agent office:** the same live data as a pixel-art game. Each agent is a character dressed
-  for the role it plays (roles you add get their own look), walks to its station, talks about
-  its work in speech bubbles, and reacts when you poke it. It has 8-bit sound effects, original
-  chiptune music and a game menu.
+- **Agent office:** the same live data as a pixel-art game, with one character per role (roles
+  you add join the team). Agents play the characters of the roles they work in: they walk to
+  their stations, talk about their work in speech bubbles and hand over to the next role. Idle
+  characters play games, drink coffee and chat. Everything reacts when you poke it, with 8-bit
+  sound effects, original chiptune music and a game menu.
 - **Admin console:** users, workspaces, agent roles, settings, tokens, agent sessions, audit
   log, system info, one-click database backup.
 - **Secure by default:** hardened containers, strict CSP, CSRF protection, hashed secrets,

@@ -265,7 +265,7 @@ test('capture the user guide screenshots', async ({ page, browser, request }) =>
 
   // Agent office: everyone walks in, then the agents talk.
   await page.goto(`/p/${projectId}/office`);
-  await expect(page.getByRole('heading', { name: 'In the office · 2' })).toBeVisible();
+  await expect(page.getByText('Agents: Claude Code, Cursor')).toBeVisible();
   await page.waitForTimeout(6000);
   await cursor('add_remark', { item: 'CANDLE-6', kind: 'test_report', body: 'Product page checks out on iPhone and Android.' });
   await claude('log_progress', { ...P, item: 'CANDLE-8', message: 'Writing the cart API tests' });

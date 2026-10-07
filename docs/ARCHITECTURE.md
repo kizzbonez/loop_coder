@@ -137,7 +137,8 @@ online agents (presence)                ┘   live or replay     └─ pages/pr
 - `lib/office` is the pixel game, also free of React: `world.ts` (map, furniture, role
   stations, path finding), `characters.ts` (sprites drawn in code; identity from the agent's
   name, outfit from the role; roles without a hand-made outfit get one derived from their key
-  and colour), `sim.ts` (walking, talking, poking, the cat), `render.ts` (draws a frame),
+  and colour), `sim.ts` (one character per role, which agents "drive" while they work in that
+  role; pastimes for idle characters; talking, poking, the cat), `render.ts` (draws a frame),
   `chatter.ts` (activity and remarks → spoken lines), `audio.ts` and `music.ts` (Web Audio
   synthesis and original chiptune loops; no audio files), `settings.ts` (validated
   per-browser settings).

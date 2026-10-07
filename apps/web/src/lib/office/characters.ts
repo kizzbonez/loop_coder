@@ -72,6 +72,14 @@ export function lookFor(name: string, role?: { key: string; color?: string | nul
   return { ...identity, ...roleOutfit(role.key), shirt: color, accessoryColor: shade(color, -0.25) };
 }
 
+/**
+ * The character of a role in the office: the same person every time, dressed for the role.
+ * `instance` > 1 is a colleague in the same role (when several agents play it at once).
+ */
+export function roleCharacter(role: { key: string; color?: string | null }, instance = 1): Look {
+  return lookFor(instance > 1 ? `role:${role.key}#${instance}` : `role:${role.key}`, role);
+}
+
 export interface CharacterPose {
   dir: Dir;
   /** Walk cycle 0–3 (0 and 2 are standing). */

@@ -29,11 +29,18 @@ test('agents walk into the pixel office, work at their stations and talk', async
   await expect(page.getByRole('heading', { name: 'Office', exact: true })).toBeVisible();
   const canvas = page.getByRole('application', { name: /Agent office/ });
   await expect(canvas).toBeVisible();
-  await expect(page.getByText('Nobody is here yet.', { exact: false })).toBeVisible();
+  // One character per role is already at work; no agent plays any of them yet.
+  await expect(page.getByRole('heading', { name: /^Team · \d+$/ })).toBeVisible();
+  await expect(page.getByText('No agent connected.', { exact: false })).toBeVisible();
+  const team = page.locator('section', { has: page.getByRole('heading', { name: /^Team · / }) });
+  await expect(team.getByText('Software Engineer', { exact: true })).toBeVisible();
+  await expect(team.getByText('QA Engineer', { exact: true })).toBeVisible();
+  const row = (role: string) => team.getByRole('listitem').filter({ has: page.getByText(role, { exact: true }) });
 
   // Kickoff in the meeting room.
   await mcp(request, claude, 'get_next_work');
-  await expect(page.getByRole('heading', { name: 'In the office · 1' })).toBeVisible();
+  await expect(row('Project Manager')).toContainText('Claude Code');
+  await expect(page.getByText('Agents: Claude Code')).toBeVisible();
   const chatter = page.getByRole('log', { name: 'Office chatter' });
   await expect(chatter).toContainText('Kickoff time!');
   await mcp(request, claude, 'create_work_items', {
@@ -49,7 +56,10 @@ test('agents walk into the pixel office, work at their stations and talk', async
   // Both agents get to work; each walks to the desk of its role and says what it is doing.
   await mcp(request, claude, 'get_next_work');
   await mcp(request, cursor, 'get_next_work');
-  await expect(page.getByRole('heading', { name: 'In the office · 2' })).toBeVisible();
+  // Both agents play Software Engineer: the engineer and a colleague work side by side.
+  await expect(row('Software Engineer')).toContainText('Claude Code');
+  await expect(row('Software Engineer')).toContainText('Cursor');
+  await expect(row('Project Manager')).toContainText('At their desk');
   await mcp(request, claude, 'log_progress', { message: 'Building the **search** page', item: 'DESK-1' });
   await expect(chatter).toContainText('Building the search page');
   await mcp(request, cursor, 'add_remark', { item: 'DESK-2', body: 'Designing the booking form', kind: 'design' });

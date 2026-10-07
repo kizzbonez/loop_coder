@@ -44,7 +44,12 @@ export function renderOffice(p: Painter, sim: OfficeSim, opts: RenderOptions): v
 
   for (const w of sim.walkers.values()) {
     if (w.emote) drawEmote(p, w.emote.kind, w.x, w.y - 30, sim.now);
-    if (opts.names) drawNameTag(p, w.kind === 'human' ? `${w.name} (you)` : w.name, w.x, w.y + 3, w.kind === 'human');
+    if (!opts.names) continue;
+    if (w.kind === 'human') drawNameTag(p, `${w.name} (you)`, w.x, w.y + 3, 'human');
+    else {
+      drawNameTag(p, w.name, w.x, w.y + 3, w.driver ? 'active' : 'idle');
+      if (w.driver) drawNameTag(p, w.driver.agentName, w.x, w.y + 11, 'agent');
+    }
   }
   if (sim.cat.emote) drawEmote(p, sim.cat.emote.kind, sim.cat.x + 3, sim.cat.y - 13, sim.now);
 
@@ -98,13 +103,27 @@ function drawWall(p: Painter, sim: OfficeSim): void {
 }
 
 function drawWindow(p: Painter, x: number, y: number, t: number): void {
-  px(p, x - 1, y - 1, 30, 20, PALETTE.wallTrim);
-  px(p, x, y, 28, 18, PALETTE.window);
-  const cloud = ((t * 3) % 40) - 8;
-  px(p, x + cloud, y + 5, 8, 3, PALETTE.windowShine);
-  px(p, x + cloud + 2, y + 3, 5, 2, PALETTE.windowShine);
+  const W = 28;
+  const H = 18;
+  px(p, x - 1, y - 1, W + 2, H + 2, PALETTE.wallTrim);
+  px(p, x, y, W, H, PALETTE.window);
+  // The cloud drifts across and comes back round; only the part behind the glass is drawn.
+  const drift = (t * 3) % (W + 8);
+  for (const shift of [0, -(W + 8)]) {
+    const cx = x + drift + shift;
+    glass(p, cx, y + 5, 8, 3, x, W);
+    glass(p, cx + 2, y + 3, 5, 2, x, W);
+  }
   px(p, x + 13, y, 2, 18, PALETTE.wallTrim);
   px(p, x, y + 8, 28, 1, PALETTE.wallTrim);
+}
+
+/** A cloud piece clipped to the window pane [left, left + width). */
+function glass(p: Painter, x: number, y: number, w: number, h: number, left: number, width: number): void {
+  x = Math.round(x);
+  const from = Math.max(x, left);
+  const to = Math.min(x + w, left + width);
+  if (to > from) px(p, from, y, to - from, h, PALETTE.windowShine);
 }
 
 function drawWhiteboard(p: Painter, x: number, y: number): void {
@@ -158,6 +177,13 @@ function drawFrontWall(p: Painter): void {
 // ---------------------------------------------------------------------------
 // Furniture
 // ---------------------------------------------------------------------------
+
+/** How many characters are at the console or arcade right now (not just walking there). */
+function playersAt(sim: OfficeSim, kind: 'console' | 'arcade'): number {
+  let n = 0;
+  for (const w of sim.walkers.values()) if (w.pastime?.kind === kind && w.path.length === 0) n++;
+  return n;
+}
 
 function objectActive(sim: OfficeSim, id: string): boolean {
   return (sim.objects.get(id)?.until ?? 0) > sim.now;
@@ -365,6 +391,41 @@ function drawFurniture(p: Painter, f: Furniture, sim: OfficeSim): void {
       px(p, X + 7 + ring, Y - 6, 2, 4, '#d39b3a');
       break;
     }
+    case 'tv': {
+      // A TV on a low cabinet; the screen plays a game while someone holds a controller.
+      const playing = playersAt(sim, 'console') > 0 || objectActive(sim, 'tv');
+      px(p, X + 1, Y + 4, W - 2, 10, PALETTE.woodDark);
+      px(p, X + 3, Y + 6, W - 6, 2, PALETTE.wood);
+      px(p, X + 4, Y - 12, W - 8, 15, PALETTE.outline);
+      px(p, X + 5, Y - 11, W - 10, 13, playing ? '#1b1f3a' : PALETTE.screen);
+      if (playing) {
+        const f = Math.floor(t * 8);
+        px(p, X + 6, Y - 1, W - 12, 2, PALETTE.green);
+        px(p, X + 8 + (f % 12), Y - 4, 3, 3, PALETTE.yellow);
+        px(p, X + W - 12 - ((f * 2) % 10), Y - 8, 2, 2, PALETTE.red);
+        px(p, X + 10 + ((f * 3) % 8), Y - 9, 1, 1, PALETTE.white);
+      }
+      px(p, X + 8, Y + 9, 6, 3, '#2b2f3a');
+      px(p, X + 9, Y + 10, 1, 1, playing ? PALETTE.green : PALETTE.metalDark);
+      break;
+    }
+    case 'arcade': {
+      const playing = playersAt(sim, 'arcade') > 0 || objectActive(sim, 'arcade');
+      px(p, X + 2, Y - 14, 12, 28, PALETTE.purple);
+      px(p, X + 2, Y - 14, 12, 3, PALETTE.pink);
+      px(p, X + 4, Y - 10, 8, 8, PALETTE.outline);
+      px(p, X + 5, Y - 9, 6, 6, playing ? PALETTE.cyan : PALETTE.screen);
+      if (playing) {
+        const f = Math.floor(t * 10);
+        px(p, X + 5 + (f % 5), Y - 8 + ((f >> 1) % 4), 2, 2, PALETTE.yellow);
+        px(p, X + 9 - (f % 4), Y - 5, 1, 1, PALETTE.red);
+      }
+      px(p, X + 3, Y, 10, 4, shade(PALETTE.purple, -0.25));
+      px(p, X + 5, Y + 1, 2, 2, PALETTE.red);
+      px(p, X + 9, Y + 1, 1, 1, PALETTE.yellow);
+      px(p, X + 11, Y + 2, 1, 1, PALETTE.green);
+      break;
+    }
     case 'crates': {
       px(p, X + 1, Y - 2, 14, 16, PALETTE.woodLight);
       frame(p, X + 1, Y - 2, 14, 16, PALETTE.woodDark);
@@ -382,11 +443,14 @@ function drawWalker(p: Painter, w: Walker, sim: OfficeSim, hovered: boolean): vo
   const walking = w.path.length > 0;
   const shake = w.shakeUntil > sim.now ? Math.round(Math.sin(sim.now * 60) * 1.5) : 0;
   const atDesk = !walking && w.working && w.spot?.face === 'up' && w.station !== 'meeting' && w.station !== 'kanban' && w.station !== 'dock';
+  // Gamers' thumbs move too; on a coffee break everyone holds a mug.
+  const gaming = !walking && (w.pastime?.kind === 'console' || w.pastime?.kind === 'arcade');
+  const look = w.pastime?.kind === 'coffee' && !walking ? { ...w.look, prop: 'mug' as const } : w.look;
   if (hovered) px(p, w.x - 7, w.y - 1, 14, 3, 'rgba(255, 255, 255, 0.55)');
-  drawCharacter(p, w.look, w.x, w.y, {
+  drawCharacter(p, look, w.x, w.y, {
     dir: w.dir,
     frame: walking ? Math.floor(w.walked / 4) % 4 : 0,
-    working: atDesk,
+    working: atDesk || gaming,
     shake,
     grumpy: w.emote?.kind === 'anger',
     hop: w.emote?.kind === 'sparkle' ? Math.round(Math.abs(Math.sin(sim.now * 12)) * 2) : 0,
@@ -450,10 +514,17 @@ function drawEmote(p: Painter, kind: Emote, x: number, y: number, t: number): vo
   }
 }
 
-function drawNameTag(p: Painter, name: string, x: number, y: number, human: boolean): void {
+const TAG_COLORS = {
+  idle: 'rgba(31, 27, 46, 0.55)',
+  active: 'rgba(31, 27, 46, 0.85)',
+  agent: 'rgba(109, 74, 255, 0.9)',
+  human: 'rgba(46, 125, 72, 0.85)',
+} as const;
+
+function drawNameTag(p: Painter, name: string, x: number, y: number, style: keyof typeof TAG_COLORS): void {
   const size = 5;
   const width = measure(p, name, size) + 4;
-  px(p, x - width / 2, y, width, size + 3, human ? 'rgba(46, 125, 72, 0.85)' : 'rgba(31, 27, 46, 0.8)');
+  px(p, x - width / 2, y, width, size + 3, TAG_COLORS[style]);
   text(p, name, x, y + size + 1, size, PALETTE.white, 'center');
 }
 

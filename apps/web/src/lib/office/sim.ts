@@ -1,9 +1,13 @@
 // The agent office simulation: who walks where, who says what, and how things react when poked.
-// Pure state + time steps, no DOM, so it can be tested and drawn by any renderer.
+// The office has one character per role. An agent "plays" a role by driving that character: it
+// walks to where the work is and talks; when the agent moves on to another role, the next
+// character takes over. Pure state + time steps, no DOM, so it can be tested and drawn by any
+// renderer.
 import type { StageId } from '../flow/model';
-import { lookFor, type Dir, type Look } from './characters';
+import { lookFor, roleCharacter, type Dir, type Look } from './characters';
 import { hash, TILE } from './pixels';
-import { findPath, HELPDESK_STAFF, OBJECTS, STATIONS, stationFor, zoneTiles, type ObjectKind, type Spot, type StationId } from './world';
+import { CHAT_CORNERS, findPath, HELPDESK_STAFF, HOT_DESKS, OBJECTS, PASTIME_SPOTS, ROLE_STATIONS, STATIONS, stationFor, zoneTiles, type ObjectKind, type PastimeKind, type Spot, type StationId } from './world';
+import { isCeremony } from '../flow/model';
 
 export type Emote = 'alert' | 'question' | 'anger' | 'sweat' | 'sleep' | 'heart' | 'sparkle' | 'dots';
 export type SfxCue =
@@ -28,13 +32,90 @@ export type SfxCue =
   | 'select';
 export type BubbleTone = 'say' | 'question' | 'answer' | 'shout' | 'object';
 
+/** A role in the office cast. */
+export interface CastRole {
+  key: string;
+  name: string;
+  color: string | null;
+}
+
+/** Something an idle character does: play, have a coffee or chat with colleagues. */
+export interface Pastime {
+  kind: PastimeKind;
+  spot: Spot;
+  until: number;
+  /** The conversation this character is part of (chats only). */
+  chat: string | null;
+}
+
+interface Conversation {
+  id: string;
+  corner: number;
+  members: string[];
+  script: readonly string[];
+  line: number;
+  nextAt: number;
+}
+
+/** Little office conversations idle characters have with each other. */
+export const CONVERSATIONS: ReadonlyArray<readonly string[]> = [
+  ['Did the build pass?', 'Green across the board!', 'Ship it!'],
+  ['Who moved my stapler?', 'The cat did.', 'Classic cat.'],
+  ['Tabs or spaces?', 'Whatever the linter says.', 'Wise.'],
+  ["How's the sprint going?", 'On track, I think.', "Let's not jinx it."],
+  ['Coffee or tea?', 'Coffee. Always coffee.', 'Same.'],
+  ['Did you write tests for that?', 'Of course!', '...mostly.'],
+  ['I dreamt about merge conflicts.', "That's a nightmare, not a dream."],
+  ['Retro idea: more snacks.', 'Seconded!', 'Thirded!'],
+  ['Have you seen the burndown?', 'It looks like a ski slope.', 'A good one, I hope.'],
+  ["Friday deploy?", 'Absolutely not.', 'Just checking.'],
+];
+
+/** What a character says about its role when poked at its desk with nothing to do. */
+const IDLE_LINES: Readonly<Record<string, readonly string[]>> = {
+  project_manager: ['Grooming the backlog in my head.', 'Nothing to plan right now.'],
+  architect: ['Thinking in boxes and arrows.', 'Sketching the next big refactor.'],
+  ui_designer: ['Picking a nicer shade of purple.', 'Sketching ideas while I wait.'],
+  software_engineer: ['Refactoring in my head.', 'Waiting for the next ticket.'],
+  code_reviewer: ['Nothing to review yet.', 'My red pen is ready.'],
+  qa_engineer: ['No bugs to hunt right now.', 'Sharpening my bug net.'],
+  devops_engineer: ['Watching the dashboards.', 'All pipelines are green.'],
+  security_engineer: ['Checking the locks.', 'Nobody gets past me.'],
+  tech_writer: ['Polishing the docs.', 'Hunting for typos.'],
+};
+const GENERIC_IDLE = ['Waiting for the next item.', 'All caught up!', 'Need anything?'] as const;
+
+/** What a character says when poked during a pastime. */
+const PASTIME_LINES: Readonly<Record<PastimeKind, readonly string[]>> = {
+  console: ['Shh, boss level!', 'Just one more round.', 'High score incoming!'],
+  arcade: ['Insert coin!', 'Beat my high score if you can.', 'Pew pew!'],
+  coffee: ['Coffee keeps the bugs away.', 'Want a cup?', 'Recharging.'],
+  chat: ['We were just talking about the retro.', 'Join us!', 'Office gossip: the cat runs this place.'],
+  help: ['I asked you something! Check Needs Human.', 'Waiting for your answer.', 'Any news on my question?'],
+};
+
+/** The agent currently playing a role character. */
+export interface Driver {
+  agentName: string;
+  stage: StageId;
+  taskKey: string | null;
+}
+
 export interface Walker {
   id: string;
+  /** Role name for role characters, the person's name for people at the help desk. */
   name: string;
-  kind: 'agent' | 'human';
+  kind: 'role' | 'human';
   look: Look;
   roleKey: string | null;
+  /** Where this character works when nobody needs it elsewhere (null for extra copies and people). */
+  home: Spot | null;
+  /** A second copy of a role, for when several agents play it at once. */
+  extra: boolean;
+  driver: Driver | null;
   taskKey: string | null;
+  /** What the character does while its role has no work. */
+  pastime: Pastime | null;
   /** Feet position in world pixels. */
   x: number;
   y: number;
@@ -135,58 +216,184 @@ export class OfficeSim {
     this.cat = { ...start, path: [], dir: 'left', walked: 0, speed: 26, sleepingUntil: 0, nextMoveAt: 3, pokes: 0, lastPoke: -99, emote: null };
   }
 
-  // --- Agents ---------------------------------------------------------------
+  // --- The cast -------------------------------------------------------------
 
-  /** Bring the office in line with the agents online and where they work. */
-  sync(agents: SimAgent[], rolesByKey: Map<string, { key: string; color: string }> = new Map()): void {
-    const taken = new Map<StationId, number>();
-    const present = new Set<string>();
-    for (const a of agents) {
-      present.add(a.id);
-      const station = stationFor(a.stage, a.roleKey);
-      const index = taken.get(station) ?? 0;
-      taken.set(station, index + 1);
-      const spots = STATIONS[station];
-      const spot = spots[index % spots.length]!;
-      const role = a.roleKey ? (rolesByKey.get(a.roleKey) ?? { key: a.roleKey, color: a.roleColor ?? '' }) : null;
-      let w = this.walkers.get(a.id);
-      if (!w) {
-        const door = tileFeet(STATIONS.door[this.walkers.size % STATIONS.door.length]!);
-        w = this.newWalker(a.id, a.name, 'agent', door.x, door.y, lookFor(a.name, role));
-        this.walkers.set(a.id, w);
-        this.cue('door');
-      } else if (w.roleKey !== a.roleKey) {
-        // Changing role means changing clothes.
-        w.look = lookFor(a.name, role);
-        w.emote = { kind: 'sparkle', until: this.now + 1.2 };
-        this.cue('poof');
-      }
-      w.roleKey = a.roleKey;
-      w.taskKey = a.taskKey;
-      w.working = a.working;
-      w.leaving = false;
-      if (w.station !== station || w.spot?.x !== spot.x || w.spot?.y !== spot.y) {
-        w.station = station;
-        w.spot = spot;
-        this.route(w, spot);
+  private cast: CastRole[] = [];
+  private nextPastimeAt = 8;
+  private conversations: Conversation[] = [];
+  private conversationSeq = 0;
+
+  /** The roles of the project: one character each, already at their desks. */
+  setCast(roles: CastRole[]): void {
+    this.cast = roles;
+    const used = new Set<string>();
+    const tile = (s: Spot) => `${s.x},${s.y}`;
+    const homes = new Map<string, Spot>();
+    for (const role of roles) {
+      const own = ROLE_STATIONS[role.key];
+      const spot = own ? STATIONS[own][0] : undefined;
+      if (spot && !used.has(tile(spot))) {
+        homes.set(role.key, spot);
+        used.add(tile(spot));
       }
     }
+    // Roles without a workplace of their own (custom roles) get the free hot desks.
+    for (const role of roles) {
+      if (homes.has(role.key)) continue;
+      const spot = HOT_DESKS.find((d) => !used.has(tile(d))) ?? HOT_DESKS[0]!;
+      homes.set(role.key, spot);
+      used.add(tile(spot));
+    }
+    for (const role of roles) {
+      const id = `role:${role.key}`;
+      const home = homes.get(role.key)!;
+      const existing = this.walkers.get(id);
+      if (existing) {
+        existing.name = role.name;
+        existing.look = roleCharacter(role);
+        existing.home = home;
+      } else {
+        const at = tileFeet(home);
+        const w = this.newWalker(id, role.name, 'role', at.x, at.y, roleCharacter(role));
+        w.roleKey = role.key;
+        w.home = home;
+        w.spot = home;
+        w.dir = home.face;
+        this.walkers.set(id, w);
+      }
+    }
+    const keys = new Set(roles.map((r) => r.key));
+    for (const w of this.walkers.values()) if (w.kind === 'role' && !w.extra && w.roleKey && !keys.has(w.roleKey)) this.leave(w);
+    this.plan();
+  }
+
+  /** Hand each role character to the agent playing that role right now. */
+  sync(agents: SimAgent[]): void {
+    const drivers = new Map<string, SimAgent[]>();
+    for (const a of [...agents].sort((x, y) => x.id.localeCompare(y.id))) {
+      if (!a.roleKey || !a.working) continue;
+      drivers.set(a.roleKey, [...(drivers.get(a.roleKey) ?? []), a]);
+    }
+    const driven = new Set<string>();
+    for (const [roleKey, list] of drivers) {
+      list.forEach((a, i) => {
+        const id = i === 0 ? `role:${roleKey}` : `role:${roleKey}#${i + 1}`;
+        let w = this.walkers.get(id);
+        if (!w || w.leaving) {
+          // A role without a character (e.g. one added after the office opened), or a second
+          // agent in the same role: someone new walks in.
+          const role = this.cast.find((r) => r.key === roleKey) ?? { key: roleKey, name: roleKey.replace(/_/g, ' '), color: a.roleColor };
+          const door = tileFeet(STATIONS.door[i % STATIONS.door.length]!);
+          w = this.newWalker(id, role.name, 'role', door.x, door.y, roleCharacter(role, i + 1));
+          w.roleKey = roleKey;
+          w.extra = i > 0 || !this.cast.some((r) => r.key === roleKey);
+          this.walkers.set(id, w);
+          this.cue('door');
+        }
+        if (!w.driver || w.driver.agentName !== a.name) {
+          w.emote = { kind: 'sparkle', until: this.now + 1.2 };
+          this.cue('poof');
+        }
+        w.driver = { agentName: a.name, stage: a.stage, taskKey: a.taskKey };
+        w.taskKey = a.taskKey;
+        w.pastime = null; // work comes first
+        driven.add(id);
+      });
+    }
     for (const w of this.walkers.values()) {
-      if (w.kind === 'agent' && !present.has(w.id) && !w.leaving) this.leave(w);
+      if (w.kind !== 'role' || driven.has(w.id)) continue;
+      w.driver = null;
+      w.taskKey = null;
+      if (w.extra && !w.leaving) this.leave(w);
+    }
+    this.plan();
+  }
+
+  /** True while an agent is running a Scrum ceremony: the whole team joins the meeting. */
+  get inMeeting(): boolean {
+    return [...this.walkers.values()].some((w) => w.driver && isCeremony(w.driver.stage));
+  }
+
+  /** Decide where every role character should be, and send those who need to move on their way. */
+  private plan(): void {
+    const tile = (s: Spot) => `${s.x},${s.y}`;
+    const taken = new Set<string>();
+    const order = new Map(this.cast.map((r, i) => [r.key, i]));
+    const cast = [...this.walkers.values()]
+      .filter((w) => w.kind === 'role' && !w.leaving)
+      .sort((a, b) => (order.get(a.roleKey ?? '') ?? 99) - (order.get(b.roleKey ?? '') ?? 99) || a.id.localeCompare(b.id));
+    const meeting = this.inMeeting;
+    const free = (spots: readonly Spot[]) => spots.find((s) => !taken.has(tile(s))) ?? spots[0]!;
+    const targets = new Map<Walker, { spot: Spot; station: StationId | null }>();
+    const homeStation = (w: Walker) => (w.home ? (Object.keys(STATIONS) as StationId[]).find((id) => STATIONS[id].some((s) => s.x === w.home!.x && s.y === w.home!.y)) ?? null : null);
+
+    // During a ceremony nobody plays games: everyone without work goes to the meeting.
+    if (meeting) for (const w of cast) w.pastime = null;
+
+    // 1. Characters with nothing to do keep their own desk.
+    for (const w of cast) {
+      if (!w.driver && !meeting && !w.pastime && w.home) {
+        targets.set(w, { spot: w.home, station: homeStation(w) });
+        taken.add(tile(w.home));
+      }
+    }
+    // 2. Characters an agent is playing go where the work is (their own desk for their role's work).
+    for (const w of cast) {
+      if (!w.driver) continue;
+      const station = stationFor(w.driver.stage, w.roleKey);
+      const spot = w.home && station === homeStation(w) ? w.home : free(STATIONS[station]);
+      targets.set(w, { spot, station });
+      taken.add(tile(spot));
+    }
+    // 3. During a ceremony everyone else takes a seat in the meeting room.
+    for (const w of cast) {
+      if (w.driver || !meeting) continue;
+      const spot = free(STATIONS.meeting);
+      targets.set(w, { spot, station: 'meeting' });
+      taken.add(tile(spot));
+    }
+    // 4. Pastimes: the console, the arcade, the coffee machine or a chat corner.
+    for (const w of cast) {
+      if (targets.has(w)) continue;
+      const spot = w.pastime?.spot ?? w.home ?? STATIONS.lounge[0]!;
+      targets.set(w, { spot, station: null });
+      taken.add(tile(spot));
+    }
+
+    for (const [w, { spot, station }] of targets) {
+      w.station = station;
+      w.working = Boolean(w.driver);
+      if (w.spot?.x === spot.x && w.spot?.y === spot.y) continue;
+      w.spot = spot;
+      this.route(w, spot);
     }
   }
 
-  /** Someone speaks: an agent by name, or a person who then walks up to the help desk. */
-  say(speaker: { name: string; kind: 'agent' | 'user' | 'system' }, text: string, tone: BubbleTone = 'say'): string | null {
+  /** Someone speaks: the character of the role they spoke in, or a person at the help desk. */
+  say(speaker: { name: string; kind: 'agent' | 'user' | 'system'; roleKey?: string | null }, text: string, tone: BubbleTone = 'say'): string | null {
     let owner: Walker | undefined;
     if (speaker.kind === 'agent') {
-      owner = [...this.walkers.values()].find((w) => w.kind === 'agent' && w.name === speaker.name && !w.leaving);
+      const all = [...this.walkers.values()].filter((w) => w.kind === 'role' && !w.leaving);
+      const playing = all.filter((w) => w.driver?.agentName === speaker.name);
+      owner =
+        (speaker.roleKey ? playing.find((w) => w.roleKey === speaker.roleKey) : undefined) ??
+        (speaker.roleKey ? all.find((w) => w.id === `role:${speaker.roleKey}`) : undefined) ??
+        playing[0];
     } else if (speaker.kind === 'user') {
       owner = this.visitHelpDesk(speaker.name);
     }
     if (!owner) return null;
     this.bubbles.set(owner.id, { ownerId: owner.id, text, tone, started: this.now, until: this.now + bubbleSeconds(text, this.textSpeed) });
-    if (tone === 'question') owner.emote = { kind: 'question', until: this.now + 4 };
+    if (tone === 'question') {
+      owner.emote = { kind: 'question', until: this.now + 4 };
+      // A question for a person: the character waits at the help desk (unless an agent needs it).
+      if (owner.kind === 'role' && !owner.driver && !this.inMeeting) {
+        const taken = new Set([...this.walkers.values()].flatMap((w) => (w !== owner && w.pastime ? [`${w.pastime.spot.x},${w.pastime.spot.y}`] : [])));
+        const spot = PASTIME_SPOTS.help.find((s) => !taken.has(`${s.x},${s.y}`)) ?? PASTIME_SPOTS.help[0]!;
+        owner.pastime = { kind: 'help', spot, until: this.now + 20, chat: null };
+        this.plan();
+      }
+    }
     return owner.id;
   }
 
@@ -212,7 +419,11 @@ export class OfficeSim {
       kind,
       look,
       roleKey: null,
+      home: null,
+      extra: false,
+      driver: null,
       taskKey: null,
+      pastime: null,
       x,
       y,
       path: [],
@@ -239,10 +450,101 @@ export class OfficeSim {
   private leave(w: Walker): void {
     w.leaving = true;
     w.working = false;
+    w.driver = null;
     w.station = null;
     const door = STATIONS.door[0]!;
     w.spot = door;
     this.route(w, door);
+  }
+
+  /** Idle characters at their desks: free to start a pastime. */
+  private idleAtDesk(): Walker[] {
+    return [...this.walkers.values()].filter((w) => w.kind === 'role' && !w.extra && !w.leaving && !w.driver && !w.pastime && w.path.length === 0);
+  }
+
+  /** Now and then idle characters play, fetch a coffee or chat; then they go back to their desks. */
+  private updatePastimes(): void {
+    let changed = false;
+    for (const w of this.walkers.values()) {
+      if (w.pastime && (w.driver || w.pastime.until <= this.now)) {
+        w.pastime = null;
+        changed = true;
+      }
+    }
+    changed = this.updateConversations() || changed;
+
+    if (this.now >= this.nextPastimeAt) {
+      this.nextPastimeAt = this.now + 8 + this.random() * 16;
+      if (!this.inMeeting) changed = this.startPastime() || changed;
+    }
+    if (changed) this.plan();
+  }
+
+  private startPastime(): boolean {
+    const idle = this.idleAtDesk();
+    if (idle.length === 0) return false;
+    const pick = () => idle.splice(Math.floor(this.random() * idle.length), 1)[0]!;
+    const busy = new Set([...this.walkers.values()].flatMap((w) => (w.pastime ? [`${w.pastime.spot.x},${w.pastime.spot.y}`] : [])));
+    const freeSpots = (spots: readonly Spot[]) => spots.filter((sp) => !busy.has(`${sp.x},${sp.y}`));
+    const roll = this.random();
+
+    if (roll < 0.35 && idle.length >= 2) {
+      const usedCorners = new Set(this.conversations.map((c) => c.corner));
+      const corner = CHAT_CORNERS.findIndex((_, i) => !usedCorners.has(i));
+      if (corner !== -1) {
+        const size = idle.length >= 3 && this.random() < 0.4 ? 3 : 2;
+        const members = Array.from({ length: size }, pick);
+        const id = `chat-${++this.conversationSeq}`;
+        members.forEach((w, i) => {
+          w.pastime = { kind: 'chat', spot: CHAT_CORNERS[corner]![i]!, until: this.now + 60, chat: id };
+        });
+        const script = CONVERSATIONS[Math.floor(this.random() * CONVERSATIONS.length)]!;
+        this.conversations.push({ id, corner, members: members.map((w) => w.id), script, line: 0, nextAt: this.now + 1 });
+        return true;
+      }
+    }
+    const kind: Exclude<PastimeKind, 'chat'> = roll < 0.6 ? 'console' : roll < 0.85 ? 'coffee' : 'arcade';
+    const spots = freeSpots(PASTIME_SPOTS[kind]);
+    if (spots.length === 0) return false;
+    const seconds = kind === 'coffee' ? 12 + this.random() * 8 : 20 + this.random() * 20;
+    // The console has two controllers: sometimes two colleagues play together.
+    const players = kind === 'console' && spots.length >= 2 && idle.length >= 2 && this.random() < 0.5 ? 2 : 1;
+    for (let i = 0; i < players; i++) pick().pastime = { kind, spot: spots[i]!, until: this.now + seconds, chat: null };
+    return true;
+  }
+
+  /** Characters in a conversation take turns once they have all arrived. */
+  private updateConversations(): boolean {
+    let changed = false;
+    this.conversations = this.conversations.filter((c) => {
+      const members = c.members.map((id) => this.walkers.get(id)).filter((w): w is Walker => w?.pastime?.chat === c.id);
+      if (members.length < 2 || c.line >= c.script.length + 1) {
+        for (const w of members) w.pastime = null;
+        changed = true;
+        return false;
+      }
+      if (members.some((w) => w.path.length > 0)) {
+        c.nextAt = Math.max(c.nextAt, this.now + 0.6);
+        return true;
+      }
+      if (this.now < c.nextAt) return true;
+      if (c.line < c.script.length) {
+        const speaker = members[c.line % members.length]!;
+        const text = c.script[c.line]!;
+        this.bubbles.set(speaker.id, { ownerId: speaker.id, text, tone: 'say', started: this.now, until: this.now + bubbleSeconds(text, this.textSpeed) * 0.8 });
+        c.nextAt = this.now + 1.4 + text.length * 0.05;
+      } else {
+        c.nextAt = this.now + 1.5; // a moment before everyone heads back
+      }
+      c.line++;
+      return true;
+    });
+    return changed;
+  }
+
+  /** The conversations going on right now (for tests and the renderer). */
+  get chats(): ReadonlyArray<{ id: string; members: string[]; line: number; script: readonly string[] }> {
+    return this.conversations;
   }
 
   // --- Poking ---------------------------------------------------------------
@@ -265,15 +567,21 @@ export class OfficeSim {
     if (w.kind === 'human') {
       text = pickFrom(['Just answering the agent!', 'Back to my real job soon.', 'Hi there!'], w.pokes);
     } else if (w.pokes === 1) {
-      text = w.working ? `Hi! I'm ${w.name}, on ${w.taskKey ?? 'a ceremony'}.` : `Hi! I'm ${w.name}. Waiting for work.`;
+      text = w.driver
+        ? `I'm the ${w.name}. ${w.driver.agentName} has me on ${w.taskKey ?? 'a ceremony'}.`
+        : w.station === 'meeting'
+          ? `I'm the ${w.name}. Shh, meeting in progress.`
+          : w.pastime
+            ? pickFrom(PASTIME_LINES[w.pastime.kind], 0)
+            : `I'm the ${w.name}. ${pickFrom(IDLE_LINES[w.roleKey ?? ''] ?? GENERIC_IDLE, 0)}`;
       w.emote = { kind: 'alert', until: this.now + 1 };
       this.cue('select');
     } else if (w.pokes === 2) {
-      text = 'Yes? I am a bit busy.';
+      text = w.driver ? 'Yes? I am a bit busy.' : w.pastime ? pickFrom(PASTIME_LINES[w.pastime.kind], 1) : pickFrom(IDLE_LINES[w.roleKey ?? ''] ?? GENERIC_IDLE, 1);
       w.emote = { kind: 'dots', until: this.now + 1.5 };
       this.cue('select');
     } else if (w.pokes === 3) {
-      text = 'Please, I am concentrating.';
+      text = w.driver ? 'Please, I am concentrating.' : w.pastime ? "I'm on my break, promise!" : 'Still nothing to do, really.';
       w.emote = { kind: 'sweat', until: this.now + 2 };
       this.cue('select');
     } else {
@@ -349,6 +657,16 @@ export class OfficeSim {
         text = `To Do ${s.todo ?? 0} · Doing ${s.in_progress ?? 0} · Review ${s.review ?? 0} · QA ${s.testing ?? 0} · Done ${s.done ?? 0}`;
         this.cue('paper');
         break;
+      case 'tv':
+        text = pickFrom(['Press START.', 'Player 2 has entered the game!', 'Loading... 99%'], n - 1);
+        this.cue('beep');
+        duration = 1.5;
+        break;
+      case 'arcade':
+        text = pickFrom(['INSERT COIN', 'HIGH SCORE: 99,999', 'GAME OVER. Play again?'], n - 1);
+        this.cue('select');
+        duration = 1.5;
+        break;
       case 'trophies': {
         const done = s.done ?? 0;
         text = done === 0 ? 'An empty shelf. Ship something!' : `${done} ${done === 1 ? 'trophy' : 'trophies'}. Keep shipping!`;
@@ -396,6 +714,7 @@ export class OfficeSim {
         this.bubbles.delete(w.id);
       }
     }
+    this.updatePastimes();
     this.updateCat(dt);
     for (const [id, b] of this.bubbles) if (b.until < this.now) this.bubbles.delete(id);
   }
@@ -423,7 +742,7 @@ export class OfficeSim {
       }
       const before = Math.floor(w.walked / TILE);
       w.walked += Math.min(dist, speed * dt);
-      if ('look' in w && w.kind === 'agent' && Math.floor(w.walked / TILE) !== before) this.cue('step', 0.9 + (hash(w.name) % 5) * 0.05);
+      if ('look' in w && w.kind === 'role' && Math.floor(w.walked / TILE) !== before) this.cue('step', 0.9 + (hash(w.name) % 5) * 0.05);
     }
     if ('look' in w && w.path.length === 0 && w.spot) w.dir = w.spot.face;
   }
@@ -464,7 +783,7 @@ export class OfficeSim {
   /** Everything that can be poked, in reading order, for keyboard play. */
   targets(): Array<{ id: string; label: string; x: number; y: number }> {
     const list = [
-      ...[...this.walkers.values()].map((w) => ({ id: w.id, label: w.kind === 'human' ? `${w.name} (you)` : w.name, x: w.x, y: w.y - 26 })),
+      ...[...this.walkers.values()].map((w) => ({ id: w.id, label: labelOf(w), x: w.x, y: w.y - 26 })),
       { id: CAT_ID, label: 'Office cat', x: this.cat.x, y: this.cat.y - 11 },
       ...OBJECTS.map((o) => ({ id: o.id, label: o.label, x: (o.x + o.w / 2) * TILE, y: o.y * TILE - 2 })),
     ];
@@ -490,6 +809,12 @@ export class OfficeSim {
     this.cues = [];
     return list;
   }
+}
+
+/** How a character is named on screen and for screen readers. */
+export function labelOf(w: Walker): string {
+  if (w.kind === 'human') return `${w.name} (you)`;
+  return w.driver ? `${w.name} (${w.driver.agentName})` : w.name;
 }
 
 function pickFrom<T>(list: readonly T[], n: number): T {

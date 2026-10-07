@@ -6,8 +6,8 @@ import { chordNotes, compileTrack, noteToMidi, parseDrums, parseVoice, STEPS, to
 import { COLS, hash, ROWS, safeColor, shade, TILE, WORLD_H, WORLD_W, type Painter } from './pixels';
 import { renderOffice } from './render';
 import { DEFAULT_SETTINGS, parseSettings } from './settings';
-import { bubbleSeconds, OfficeSim, rng, tileFeet, WALK_SPEED, type SimAgent } from './sim';
-import { FURNITURE, findPath, GRID, OBJECTS, ROLE_STATIONS, STATIONS, stationFor, walkable, zoneTiles } from './world';
+import { bubbleSeconds, CONVERSATIONS, labelOf, OfficeSim, rng, tileFeet, WALK_SPEED, type CastRole, type SimAgent } from './sim';
+import { CHAT_CORNERS, FURNITURE, findPath, GRID, HOT_DESKS, OBJECTS, PASTIME_SPOTS, ROLE_STATIONS, STATIONS, stationFor, walkable, zoneTiles } from './world';
 
 /** A canvas stand-in that records what is drawn. */
 function fakePainter(scale = 2) {
@@ -119,6 +119,14 @@ describe('office map', () => {
     }
   });
 
+  it('can reach every pastime spot, chat corner and hot desk', () => {
+    const door = STATIONS.door[0]!;
+    for (const s of [...Object.values(PASTIME_SPOTS).flat(), ...CHAT_CORNERS.flat(), ...HOT_DESKS]) {
+      expect(walkable(s.x, s.y), `${s.x},${s.y}`).toBe(true);
+      expect(findPath(door, s), `${s.x},${s.y}`).not.toBeNull();
+    }
+  });
+
   it('keeps furniture inside the room and apart', () => {
     const cells = new Set<string>();
     for (const f of FURNITURE) {
@@ -163,102 +171,218 @@ describe('office map', () => {
 });
 
 describe('office simulation', () => {
-  it('walks agents in from the door to the station of their role', () => {
-    const sim = new OfficeSim(1);
-    sim.sync([agent()]);
-    const w = sim.walkers.get('s1')!;
-    expect(w.y).toBe(tileFeet(STATIONS.door[0]!).y);
-    expect(sim.drainCues().map((c) => c.cue)).toContain('door');
-    expect(w.station).toBe('dev_desk');
-    settle(sim);
-    expect({ x: w.x, y: w.y }).toEqual(tileFeet(STATIONS.dev_desk[0]!));
-    expect(w.dir).toBe('up');
-    expect(sim.drainCues().some((c) => c.cue === 'step')).toBe(true);
+  const CAST: CastRole[] = [
+    { key: 'project_manager', name: 'Project Manager', color: '#6d4aff' },
+    { key: 'software_engineer', name: 'Software Engineer', color: '#10b981' },
+    { key: 'code_reviewer', name: 'Code Reviewer', color: '#f59e0b' },
+    { key: 'qa_engineer', name: 'QA Engineer', color: '#ec4899' },
+    { key: 'data_engineer', name: 'Data Engineer', color: '#0ea5e9' },
+  ];
+  const office = (seed = 1) => {
+    const sim = new OfficeSim(seed);
+    sim.setCast(CAST);
+    return sim;
+  };
+  const role = (sim: OfficeSim, key: string) => sim.walkers.get(`role:${key}`)!;
+  const at = (w: { x: number; y: number }) => ({ x: w.x, y: w.y });
+
+  it('has one character per role, each already at their own desk', () => {
+    const sim = office();
+    expect([...sim.walkers.keys()]).toEqual(CAST.map((r) => `role:${r.key}`));
+    expect(at(role(sim, 'software_engineer'))).toEqual(tileFeet(STATIONS.dev_desk[0]!));
+    expect(at(role(sim, 'code_reviewer'))).toEqual(tileFeet(STATIONS.review[0]!));
+    // A role added later gets a free hot desk.
+    expect(role(sim, 'data_engineer').home).toEqual(HOT_DESKS[0]);
+    const homes = [...sim.walkers.values()].map((w) => `${w.home!.x},${w.home!.y}`);
+    expect(new Set(homes).size).toBe(homes.length);
+    expect(role(sim, 'qa_engineer').look.accessory).toBe('goggles');
+    expect(labelOf(role(sim, 'qa_engineer'))).toBe('QA Engineer');
   });
 
-  it('walks at a steady pace', () => {
-    const sim = new OfficeSim(1);
-    sim.sync([agent()]);
-    const w = sim.walkers.get('s1')!;
-    const start = { x: w.x, y: w.y };
-    sim.update(0.5);
-    expect(Math.abs(w.x - start.x) + Math.abs(w.y - start.y)).toBeCloseTo(WALK_SPEED * 0.5, 0);
-  });
-
-  it('changes clothes with the role and spreads several agents over a station', () => {
-    const sim = new OfficeSim(1);
-    sim.sync([agent(), agent({ id: 's2', name: 'Cursor' })]);
-    expect(sim.walkers.get('s2')!.spot).not.toEqual(sim.walkers.get('s1')!.spot);
-    sim.drainCues();
-    sim.sync([agent({ stage: 'review', roleKey: 'code_reviewer', roleColor: '#f59e0b' }), agent({ id: 's2', name: 'Cursor' })]);
-    const w = sim.walkers.get('s1')!;
-    expect(w.look.accessory).toBe('glasses');
-    expect(w.station).toBe('review');
+  it('lets an agent play a role: the character goes to work, then hands over to the next role', () => {
+    const sim = office();
+    sim.sync([agent({ stage: 'blocked', roleKey: 'software_engineer' })]);
+    const engineer = role(sim, 'software_engineer');
+    expect(engineer.driver).toMatchObject({ agentName: 'Claude Code', taskKey: 'SHOP-1' });
+    expect(labelOf(engineer)).toBe('Software Engineer (Claude Code)');
+    expect(engineer.station).toBe('helpdesk');
     expect(sim.drainCues().map((c) => c.cue)).toContain('poof');
+    settle(sim, 20);
+    expect(STATIONS.helpdesk.some((s) => tileFeet(s).x === engineer.x && tileFeet(s).y === engineer.y)).toBe(true);
+
+    // The agent moves on to reviewing: the engineer goes home, the reviewer gets to work.
+    sim.sync([agent({ stage: 'review', roleKey: 'code_reviewer' })]);
+    expect(engineer.driver).toBeNull();
+    expect(role(sim, 'code_reviewer').driver?.agentName).toBe('Claude Code');
+    expect(role(sim, 'code_reviewer').working).toBe(true);
+    expect(engineer.spot).toEqual(engineer.home); // heading back to their desk
+    for (let t = 0; t < 20 * 15 && engineer.path.length > 0; t++) sim.update(0.05);
+    expect(at(engineer)).toEqual(tileFeet(engineer.home!));
   });
 
-  it('sees agents out when they disconnect', () => {
-    const sim = new OfficeSim(1);
+  it('only gives a character to agents that are working', () => {
+    const sim = office();
+    sim.sync([agent({ working: false })]);
+    expect(role(sim, 'software_engineer').driver).toBeNull();
+  });
+
+  it('brings in a colleague when two agents play the same role, and sees them out after', () => {
+    const sim = office();
+    sim.sync([agent(), agent({ id: 's2', name: 'Cursor', taskKey: 'SHOP-2' })]);
+    const extra = sim.walkers.get('role:software_engineer#2')!;
+    expect(extra.extra).toBe(true);
+    expect(extra.driver?.agentName).toBe('Cursor');
+    expect(extra.look).not.toEqual(role(sim, 'software_engineer').look);
+    expect(extra.spot).not.toEqual(role(sim, 'software_engineer').spot);
     sim.sync([agent()]);
-    settle(sim);
+    expect(extra.leaving).toBe(true);
+    settle(sim, 30);
+    expect(sim.walkers.has('role:software_engineer#2')).toBe(false);
+  });
+
+  it('gives an unknown role a temporary character', () => {
+    const sim = office();
+    sim.sync([agent({ roleKey: 'brand_new', roleColor: '#123456' })]);
+    const w = sim.walkers.get('role:brand_new')!;
+    expect(w.extra).toBe(true);
+    expect(w.look.shirt).toBe('#123456');
+  });
+
+  it('gathers the whole team in the meeting room during a ceremony', () => {
+    const sim = office();
+    sim.sync([agent({ stage: 'sprint_planning', roleKey: 'project_manager', taskKey: null })]);
+    expect(sim.inMeeting).toBe(true);
+    const seats = new Set(STATIONS.meeting.map((s) => `${s.x},${s.y}`));
+    for (const w of sim.walkers.values()) expect(seats.has(`${w.spot!.x},${w.spot!.y}`), w.id).toBe(true);
+    expect(new Set([...sim.walkers.values()].map((w) => `${w.spot!.x},${w.spot!.y}`)).size).toBe(CAST.length);
     sim.sync([]);
-    expect(sim.walkers.get('s1')!.leaving).toBe(true);
-    settle(sim);
-    expect(sim.walkers.has('s1')).toBe(false);
+    for (const w of sim.walkers.values()) expect(w.spot, w.id).toEqual(w.home);
   });
 
-  it('lets agents talk, and brings a person to the help desk when they answer', () => {
-    const sim = new OfficeSim(1);
+  it('keeps idle characters busy with games, coffee and chats, and back to work when needed', () => {
+    const sim = office(3);
+    const seen = new Set<string>();
+    const said = new Set<string>();
+    for (let t = 0; t < 20 * 240; t++) {
+      sim.update(0.05);
+      for (const w of sim.walkers.values()) if (w.pastime) seen.add(w.pastime.kind);
+      for (const b of sim.bubbles.values()) said.add(b.text);
+    }
+    expect(seen).toEqual(new Set(['console', 'coffee', 'arcade', 'chat']));
+    // Conversations really happen, line by line.
+    const lines = CONVERSATIONS.flat();
+    expect([...said].filter((t) => lines.includes(t)).length).toBeGreaterThan(2);
+    // Pastimes stop as soon as an agent needs the role.
+    const someone = [...sim.walkers.values()].find((w) => w.roleKey === 'qa_engineer')!;
+    sim.sync([agent({ stage: 'testing', roleKey: 'qa_engineer' })]);
+    expect(someone.pastime).toBeNull();
+    expect(someone.station).toBe('qa');
+  });
+
+  it('runs a conversation in turns and lets everyone go back afterwards', () => {
+    const sim = office(1);
+    for (let t = 0; t < 20 * 600 && sim.chats.length === 0; t++) sim.update(0.05);
+    const chat = sim.chats[0]!;
+    expect(chat.members.length).toBeGreaterThanOrEqual(2);
+    const said: Array<[string, string]> = [];
+    for (let t = 0; t < 20 * 90 && sim.chats.includes(chat); t++) {
+      sim.update(0.05);
+      for (const id of chat.members) {
+        const text = sim.bubbles.get(id)?.text;
+        if (text && chat.script.includes(text) && !said.some(([, s]) => s === text)) said.push([id, text]);
+      }
+    }
+    // Every line was said, in order, by the members taking turns.
+    expect(said.map(([, text]) => text)).toEqual([...chat.script]);
+    expect(said.map(([id]) => id)).toEqual(chat.script.map((_, i) => chat.members[i % chat.members.length]));
+    // Afterwards everyone is free again.
+    expect(sim.chats.includes(chat)).toBe(false);
+    for (const id of chat.members) expect(sim.walkers.get(id)!.pastime?.chat).not.toBe(chat.id);
+  });
+
+  it('answers in character when poked, and gets annoyed when poked too often', () => {
+    const sim = office();
+    expect(sim.poke('role:qa_engineer')).toBe("QA Engineer: I'm the QA Engineer. No bugs to hunt right now.");
+    expect(sim.poke('role:qa_engineer')).toBe('QA Engineer: Sharpening my bug net.');
     sim.sync([agent()]);
-    expect(sim.say({ name: 'Claude Code', kind: 'agent' }, 'Writing the tests')).toBe('s1');
-    expect(sim.bubbles.get('s1')!.text).toBe('Writing the tests');
-    expect(sim.say({ name: 'Nobody', kind: 'agent' }, 'hello')).toBeNull();
-    sim.say({ name: 'Claude Code', kind: 'agent' }, 'Which country?', 'question');
-    expect(sim.walkers.get('s1')!.emote?.kind).toBe('question');
+    sim.drainCues();
+    expect(sim.poke('role:software_engineer')).toBe("Software Engineer: I'm the Software Engineer. Claude Code has me on SHOP-1.");
+    sim.poke('role:software_engineer');
+    sim.poke('role:software_engineer');
+    expect(role(sim, 'software_engineer').emote?.kind).toBe('sweat');
+    expect(sim.poke('role:software_engineer')).toBe('Software Engineer: Hey! Stop poking me!');
+    expect(role(sim, 'software_engineer').emote?.kind).toBe('anger');
+    expect(sim.drainCues().map((c) => c.cue)).toContain('annoyed');
+    sim.update(10);
+    expect(sim.poke('role:software_engineer')).toContain("I'm the Software Engineer");
+  });
+
+  it('says pastime lines when someone is playing or on a coffee break', () => {
+    const sim = office(3);
+    let gamer: string | null = null;
+    for (let t = 0; t < 20 * 600 && !gamer; t++) {
+      sim.update(0.05);
+      gamer = [...sim.walkers.values()].find((w) => w.pastime?.kind === 'console')?.id ?? null;
+    }
+    expect(['Shh, boss level!']).toContain(sim.poke(gamer!)!.split(': ')[1]);
+  });
+
+  it('lets the character of the role speak, and brings people to the help desk', () => {
+    const sim = office();
+    sim.sync([agent()]);
+    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'software_engineer' }, 'Writing the tests')).toBe('role:software_engineer');
+    // A line said in another role comes from that role's character, even if nobody plays it now.
+    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'code_reviewer' }, 'Approved')).toBe('role:code_reviewer');
+    // Without a role, the character the agent is playing speaks.
+    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: null }, 'Hmm')).toBe('role:software_engineer');
+    expect(sim.say({ name: 'Nobody', kind: 'agent', roleKey: null }, 'hello')).toBeNull();
+    // A question from a role nobody is playing: that character waits at the help desk.
+    sim.say({ name: 'Cursor', kind: 'agent', roleKey: 'qa_engineer' }, 'Which browsers?', 'question');
+    expect(role(sim, 'qa_engineer').pastime?.kind).toBe('help');
+    expect(role(sim, 'qa_engineer').emote?.kind).toBe('question');
+    expect(sim.poke('role:qa_engineer')).toBe('QA Engineer: I asked you something! Check Needs Human.');
+    sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'software_engineer' }, 'Which country?', 'question');
+    expect(role(sim, 'software_engineer').emote?.kind).toBe('question');
 
     const id = sim.say({ name: 'Ada', kind: 'user' }, 'Philippines only', 'answer')!;
     expect(id).toBe('human:Ada');
     settle(sim, 10);
-    expect(tileFeet({ x: 27, y: 3 })).toEqual({ x: sim.walkers.get(id)!.x, y: sim.walkers.get(id)!.y });
-    settle(sim, 30); // they go back to work
+    expect(at(sim.walkers.get(id)!)).toEqual(tileFeet({ x: 27, y: 3 }));
+    settle(sim, 30);
     expect(sim.walkers.has(id)).toBe(false);
     expect(bubbleSeconds('x'.repeat(500))).toBe(10);
     expect(bubbleSeconds('hi', 'fast')).toBeLessThan(bubbleSeconds('hi', 'slow'));
   });
 
-  it('gets annoyed when poked too often, and calms down again', () => {
-    const sim = new OfficeSim(1);
-    sim.sync([agent()]);
-    sim.drainCues();
-    expect(sim.poke('s1')).toBe("Claude Code: Hi! I'm Claude Code, on SHOP-1.");
-    sim.poke('s1');
-    sim.poke('s1');
-    expect(sim.walkers.get('s1')!.emote?.kind).toBe('sweat');
-    expect(sim.poke('s1')).toBe('Claude Code: Hey! Stop poking me!');
-    expect(sim.walkers.get('s1')!.emote?.kind).toBe('anger');
-    expect(sim.drainCues().map((c) => c.cue)).toContain('annoyed');
-    sim.update(10);
-    expect(sim.poke('s1')).toContain('Hi!');
+  it('walks at a steady pace', () => {
+    const sim = office();
+    sim.sync([agent({ stage: 'done' })]);
+    const w = role(sim, 'software_engineer');
+    const start = at(w);
+    sim.update(0.5);
+    expect(Math.abs(w.x - start.x) + Math.abs(w.y - start.y)).toBeCloseTo(WALK_SPEED * 0.5, 0);
   });
 
   it('makes objects react, using the board numbers where it matters', () => {
-    const sim = new OfficeSim(1);
+    const sim = office();
     sim.stats = { blocked: 2, done: 1, todo: 3 };
     expect(sim.poke('bell')).toBe('2 items need your answer!');
     expect(sim.poke('gong')).toBe('1 item shipped! BONG!');
     expect(sim.poke('kanban')).toContain('To Do 3');
     expect(sim.poke('duck')).toBe('Squeak!');
+    expect(sim.poke('tv')).toBe('Press START.');
+    expect(sim.poke('arcade')).toBe('INSERT COIN');
     expect(sim.objects.get('duck')!.until).toBeGreaterThan(sim.now);
     for (let i = 0; i < 3; i++) sim.poke('printer');
     expect(sim.poke('printer')).toContain('Fixed it');
-    expect(sim.drainCues().map((c) => c.cue)).toEqual(expect.arrayContaining(['ding', 'gong', 'squeak', 'jam', 'paper']));
+    expect(sim.drainCues().map((c) => c.cue)).toEqual(expect.arrayContaining(['ding', 'gong', 'squeak', 'jam', 'paper', 'beep']));
     expect(sim.poke('nothing-here')).toBeNull();
     sim.stats = {};
     expect(sim.poke('bell')).toBe('Nothing needs you right now.');
   });
 
   it('has a cat that wanders, naps, and hisses when bothered', () => {
-    const sim = new OfficeSim(3);
+    const sim = office(3);
     settle(sim, 60);
     expect(walkable(Math.floor(sim.cat.x / TILE), Math.floor((sim.cat.y - 1) / TILE))).toBe(true);
     sim.poke('cat');
@@ -268,15 +392,14 @@ describe('office simulation', () => {
   });
 
   it('finds what was clicked and lists everything for keyboard play', () => {
-    const sim = new OfficeSim(1);
-    sim.sync([agent()]);
-    settle(sim);
-    const w = sim.walkers.get('s1')!;
-    expect(sim.hitTest(w.x, w.y - 10)).toBe('s1');
+    const sim = office();
+    const w = role(sim, 'code_reviewer');
+    expect(sim.hitTest(w.x, w.y - 10)).toBe('role:code_reviewer');
     expect(sim.hitTest(14 * TILE + 8, 14 * TILE + 8)).toBe('duck');
     expect(sim.hitTest(5, 5)).toBeNull();
     const targets = sim.targets();
-    expect(targets.map((t) => t.id)).toEqual(expect.arrayContaining(['s1', 'cat', 'duck', 'kanban']));
+    expect(targets.map((t) => t.id)).toEqual(expect.arrayContaining(['role:code_reviewer', 'cat', 'duck', 'kanban', 'tv']));
+    expect(targets.find((t) => t.id === 'role:code_reviewer')!.label).toBe('Code Reviewer');
     const rows = targets.map((t) => Math.floor(t.y / TILE));
     expect([...rows].sort((a, b) => a - b)).toEqual(rows);
   });
@@ -410,16 +533,20 @@ describe('office renderer', () => {
   it('draws a whole frame with people, the cat, bubbles and the keyboard pointer', () => {
     const sim = new OfficeSim(1);
     sim.stats = { todo: 2, done: 3, blocked: 1, in_progress: 1 };
+    sim.setCast([
+      { key: 'project_manager', name: 'Project Manager', color: '#6d4aff' },
+      { key: 'software_engineer', name: 'Software Engineer', color: '#10b981' },
+    ]);
     sim.sync([agent(), agent({ id: 's2', name: 'Cursor', stage: 'sprint_planning', roleKey: 'project_manager' })]);
     settle(sim, 5);
-    sim.say({ name: 'Claude Code', kind: 'agent' }, 'A rather long sentence that has to wrap over several lines inside the speech bubble to fit');
+    sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'software_engineer' }, 'A rather long sentence that has to wrap over several lines inside the speech bubble to fit');
     sim.say({ name: 'Ada', kind: 'user' }, 'Sounds good');
     sim.poke('coffee');
     sim.update(1);
     const { painter, rects, texts } = fakePainter(2);
     renderOffice(painter, sim, { names: true, focusId: 'duck', hoverId: 's1', textSpeed: 'instant' });
     expect(rects.length).toBeGreaterThan(1000);
-    expect(texts).toEqual(expect.arrayContaining(['Claude Code', 'Cursor', 'Ada (you)', 'LOOP CODER HQ', 'BACKLOG']));
+    expect(texts).toEqual(expect.arrayContaining(['Software Engineer', 'Project Manager', 'Claude Code', 'Cursor', 'Ada (you)', 'LOOP CODER HQ', 'BACKLOG']));
     expect(texts.some((t) => t.startsWith('A rather long'))).toBe(true);
   });
 });

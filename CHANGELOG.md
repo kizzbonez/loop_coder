@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The agent office has one character per role instead of one per agent. Agents play the
+  character of the role they work in, so the whole team is in the office and work visibly
+  passes from role to role; a second agent in the same role brings in a colleague. Roles
+  added later join the team at a free desk. A **Team** panel shows who plays which role.
+
+### Added
+
+- Idle characters play on the console or the arcade machine, take coffee breaks and chat with
+  each other; they answer in character when poked. A character with a question waits at the
+  help desk, and the whole team meets for kickoff, sprint planning and sprint review.
+
+### Fixed
+
+- The clouds in the office windows stay behind the glass.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added
