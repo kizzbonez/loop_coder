@@ -1,6 +1,6 @@
 {
   "name": "@loop/runner",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
   "description": "Runs Loop Coder's API agents: each works the board with an administrator-configured AI provider's model, through the API's model relay.",
   "type": "module",

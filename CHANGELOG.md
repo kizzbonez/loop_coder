@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-08
+
 ### Added
 
 - **More life in the agent office.** Idle characters now also nap on the sofa (poke twice to wake

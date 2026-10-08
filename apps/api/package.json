@@ -1,6 +1,6 @@
 {
   "name": "@loop/api",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
-    "@loop/shared": "^0.9.1",
+    "@loop/shared": "^0.10.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "better-sqlite3": "^13.0.3",
     "cookie-parser": "^1.4.7",
