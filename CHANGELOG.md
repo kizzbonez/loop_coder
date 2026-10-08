@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-08
+
 ### Changed
 
 - **The board says when a pause or stop is still on its way.** A pause or stop takes effect
