@@ -10,6 +10,7 @@ import { addDays, now } from '../../lib/time';
 import { audit } from '../audit/audit.service';
 import { requireProjectAccess, requireWorkspaceAccess } from '../projects/access';
 import { getSettings } from '../settings/settings.service';
+import { releaseClaimsOfTokens } from '../workflow/claims';
 
 export const TOKEN_PREFIX = 'lc_pat';
 const LAST_USED_WRITE_INTERVAL_MS = 60_000;
@@ -147,25 +148,27 @@ export function setAgentTokenRoles(tokenId: string, roleKeys: string[] | null): 
 
 /** Revoke a token without an actor (an API agent was deleted or its token replaced). */
 export function revokeTokenById(tokenId: string): void {
-  db.update(apiTokens).set({ revokedAt: now() }).where(and(eq(apiTokens.id, tokenId), isNull(apiTokens.revokedAt))).run();
+  const changed = db.update(apiTokens).set({ revokedAt: now() }).where(and(eq(apiTokens.id, tokenId), isNull(apiTokens.revokedAt))).run().changes;
+  if (changed > 0) releaseClaimsOfTokens([tokenId]);
 }
 
-/** Revoke a token. Non-admins may only revoke their own tokens. */
+/** Revoke a token. Non-admins may only revoke their own tokens. The work it held is handed back. */
 export function revokeToken(actor: Actor, tokenId: string, asAdmin = false): void {
   const where = asAdmin
     ? and(eq(apiTokens.id, tokenId), isNull(apiTokens.revokedAt))
     : and(eq(apiTokens.id, tokenId), eq(apiTokens.userId, actor.userId), isNull(apiTokens.revokedAt));
   const changed = db.update(apiTokens).set({ revokedAt: now() }).where(where).run().changes;
   if (changed === 0) throw notFound('Token');
+  releaseClaimsOfTokens([tokenId]);
   audit({ action: asAdmin ? 'admin.token_revoked' : 'token.revoked', actor, targetType: 'api_token', targetId: tokenId });
 }
 
 export function revokeAllUserTokens(userId: string): number {
-  return db
-    .update(apiTokens)
-    .set({ revokedAt: now() })
-    .where(and(eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt)))
-    .run().changes;
+  const live = and(eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt));
+  const ids = db.select({ id: apiTokens.id }).from(apiTokens).where(live).all().map((t) => t.id);
+  const changed = db.update(apiTokens).set({ revokedAt: now() }).where(live).run().changes;
+  releaseClaimsOfTokens(ids);
+  return changed;
 }
 
 export interface AuthenticatedToken {

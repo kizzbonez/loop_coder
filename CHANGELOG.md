@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Removing an agent frees its work at once.** Deleting an API agent, revoking an access token
+  or disabling a user hands back the work items and ceremonies that agent had claimed, and wakes
+  the agents that are waiting. Before, the work stayed locked until the claim timed out.
+
 ## [0.9.0] - 2026-10-08
 
 ### Added

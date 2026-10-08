@@ -145,6 +145,31 @@ describe('API agents: the runner', () => {
     expect(dto.status.error).toMatch(/no longer an active administrator/);
   });
 
+  it('deleting an API agent hands back the work it held, so another agent takes it at once', async () => {
+    const claude = await provider();
+    const bot: ApiAgentDTO = await createAgent({ name: 'Bot', providerId: claude.id });
+    const job = await started(bot);
+    const api = mcpClient(app, job.token);
+    await api.initialize('loop-api-agent/Bot');
+    expect(await api.ok('get_next_work', { project: 'SHOP' })).toMatch(/Project kickoff/);
+
+    const secret = (await admin.post('/api/account/tokens').send({ name: 'Claude Code', expiresInDays: 30 }).expect(201)).body.secret as string;
+    const claude2 = mcpClient(app, secret);
+    await claude2.initialize();
+    expect(await claude2.ok('get_next_work', { project: 'SHOP' })).toMatch(/STATUS: WAITING/);
+
+    await admin.delete(`/api/admin/api-agents/${bot.id}`).expect(204);
+    expect(await claude2.ok('get_next_work', { project: 'SHOP' })).toMatch(/Project kickoff/);
+  });
+
+  it('revoking a token frees the items it claimed', async () => {
+    const created = (await admin.post('/api/account/tokens').send({ name: 'Laptop', expiresInDays: 30 }).expect(201)).body;
+    const task = (await admin.post(`/api/projects/${projectId}/tasks`).send({ title: 'Claimed item' }).expect(201)).body;
+    sqlite.prepare('UPDATE tasks SET claimed_by = ?, claim_expires_at = ? WHERE id = ?').run(`token:${created.token.id}`, Date.now() + 3_600_000, task.id);
+    await admin.delete(`/api/account/tokens/${created.token.id}`).expect(204);
+    expect(sqlite.prepare('SELECT claimed_by AS claimedBy, claim_expires_at AS expires FROM tasks WHERE id = ?').get(task.id)).toEqual({ claimedBy: null, expires: null });
+  });
+
   it('records what the runner reports', async () => {
     const claude = await provider();
     const agent: ApiAgentDTO = await createAgent({ name: 'Bot', providerId: claude.id });

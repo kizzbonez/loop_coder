@@ -690,7 +690,8 @@ Then click **Start**. Within a few seconds the runner picks it up; the line unde
 what it is doing (for example *CANDLE-12: you are acting as the Backend Developer*), any error,
 and today's tokens and requests. **Stop** stops it after its current model call; **Pause**,
 **Resume** and **Stop** on the board work for it like for any agent. **Edit** changes its model,
-roles or limits from its next step; **Delete** stops it and revokes its access.
+roles or limits from its next step; **Delete** stops it, revokes its access and hands back the item it was working on, so another
+agent (for example your Claude Code session, if it plays that role) takes it over at once.
 
 How API agents are kept safe:
 
