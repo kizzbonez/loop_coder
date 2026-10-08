@@ -86,7 +86,9 @@ export function AdminWorkspaces() {
                     <span className="font-medium">{p.name}</span>
                   </td>
                   <td className="py-2.5 text-muted">{p.workspaceName}</td>
-                  <td className="py-2.5">{p.agentState === 'paused' ? <Badge tone="warning">Paused</Badge> : <Badge tone="success">Active</Badge>}</td>
+                  <td className="py-2.5">
+                    {p.agentState === 'paused' ? <Badge tone="warning">Paused</Badge> : p.agentState === 'stopped' ? <Badge>Stopped</Badge> : <Badge tone="success">Active</Badge>}
+                  </td>
                   <td className="w-48 py-2.5">
                     <div className="flex items-center gap-2">
                       <ProgressBar value={percent(p.stats.done, p.stats.total)} />

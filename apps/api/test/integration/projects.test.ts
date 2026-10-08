@@ -74,7 +74,7 @@ describe('projects', () => {
     expect((await editor.get('/api/projects').expect(200)).body.items).toHaveLength(1);
   });
 
-  it('only owners change project settings; editors may pause and resume the agent', async () => {
+  it('only owners change project settings; editors may pause, stop and resume the agent', async () => {
     const p = await createProject(owner, wsId);
     await editor.patch(`/api/projects/${p.id}`).send({ name: 'Renamed' }).expect(403);
     await viewer.patch(`/api/projects/${p.id}`).send({ agentState: 'paused' }).expect(403);
@@ -87,6 +87,9 @@ describe('projects', () => {
     expect(updated.body).toMatchObject({ name: 'Renamed', definitionOfDone: '- shipped', notes: 'n', sprintCapacity: 30 });
     const activity = (await owner.get(`/api/projects/${p.id}/activity`).expect(200)).body.items;
     expect(activity.map((a: { action: string }) => a.action)).toContain('agent.paused');
+    const stopped = await editor.patch(`/api/projects/${p.id}`).send({ agentState: 'stopped' }).expect(200);
+    expect(stopped.body.agentState).toBe('stopped');
+    await editor.patch(`/api/projects/${p.id}`).send({ agentState: 'asleep' }).expect(400);
   });
 
   it('configures columns (name, WIP, role) and protects human columns', async () => {

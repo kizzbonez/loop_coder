@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Pause, resume and stop.** The board header now has three controls. **Pause** lets the
+  agent finish its current step, then it waits, still connected, and carries on by itself the
+  moment someone clicks **Resume** (before, a paused agent ended its session and had to be
+  started again). **Stop** lets it finish its current step and end its session; after a stop,
+  Resume allows work again and the agent is started from the coding agent as usual.
+- **`wait_for_work`** MCP tool: a paused or waiting agent calls it in rounds of up to 50
+  seconds; it returns the next work as soon as a human resumes, answers a question or frees up
+  an item, and returns `STOPPED` at once on a stop. Abandoned waits never claim work.
+- Agents also wait, rather than end, when nothing can move until a human answers in
+  **Needs Human**.
+
+### Changed
+
+- `get_next_work` says what to do next with every status (wait, or end the session), and the
+  work prompt and the copy-paste loop instructions follow the new rules.
+- The office announces stops, and the projects list, sidebar, Agent tab and administration
+  show stopped projects.
+
 ## [0.5.0] - 2026-10-08
 
 ### Changed

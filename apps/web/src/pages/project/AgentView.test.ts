@@ -14,7 +14,8 @@ describe('loopInstructions (for MCP clients without prompt support)', () => {
     for (const tool of ['move_work_item', 'mark_refined', 'start_sprint', 'complete_sprint', 'complete_kickoff', 'request_human_input']) {
       expect(text).toContain(tool);
     }
-    expect(text).toMatch(/COMPLETE, PAUSED or WAITING/);
+    expect(text).toMatch(/PAUSED or WAITING, do not end: call wait_for_work/);
+    expect(text).toMatch(/only when it reports STOPPED, COMPLETE or DISABLED/);
   });
 
   it('is client-neutral', () => {

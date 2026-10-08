@@ -182,7 +182,12 @@ export function Sidebar() {
           >
             <span className="flex h-5 min-w-8 items-center justify-center rounded bg-surface-3 px-1 font-mono text-[10px] font-semibold text-muted">{p.key}</span>
             <span className="truncate">{p.name}</span>
-            {p.agentState === 'paused' && <span className="ml-auto size-1.5 rounded-full bg-warning" title="Agent paused" />}
+            {p.agentState !== 'active' && (
+              <span
+                className={clsx('ml-auto size-1.5 rounded-full', p.agentState === 'paused' ? 'bg-warning' : 'bg-danger')}
+                title={p.agentState === 'paused' ? 'Agent paused' : 'Agent stopped'}
+              />
+            )}
           </NavLink>
         ))}
         {projects.data?.length === 0 && <p className="px-2.5 py-1 text-xs text-subtle">No projects yet.</p>}

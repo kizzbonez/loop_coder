@@ -85,7 +85,9 @@ Use the "${MCP_SERVER_NAME}" MCP tools:
 1. Call get_next_work with project "${projectKey}".
 2. Play the role it names and follow its instructions exactly. Do the real work in this folder.
 3. Finish the step with the tool the instructions name (move_work_item, mark_refined, start_sprint, complete_sprint, complete_kickoff or request_human_input).
-4. Repeat from step 1 until get_next_work reports COMPLETE, PAUSED or WAITING, then summarise what you did.`;
+4. Repeat from step 1.
+
+When get_next_work reports PAUSED or WAITING, do not end: call wait_for_work with project "${projectKey}" and keep calling it while it reports PAUSED or WAITING. It returns the next work as soon as a human resumes the project or answers; then carry on from step 2. End, with a summary of what you did, only when it reports STOPPED, COMPLETE or DISABLED.`;
 }
 
 export function AgentView() {
@@ -142,7 +144,15 @@ export function AgentView() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold">{project.agent.agentName ?? 'AI agent'}</h2>
-            {project.agentState === 'paused' ? <Badge tone="warning">Paused</Badge> : project.agent.online ? <Badge tone="success">Online</Badge> : <Badge>Offline</Badge>}
+            {project.agentState === 'paused' ? (
+              <Badge tone="warning">Paused</Badge>
+            ) : project.agentState === 'stopped' ? (
+              <Badge>Stopped</Badge>
+            ) : project.agent.online ? (
+              <Badge tone="success">Online</Badge>
+            ) : (
+              <Badge>Offline</Badge>
+            )}
           </div>
           <p className="mt-0.5 truncate text-[13px] text-muted">
             {project.agent.online
@@ -277,7 +287,7 @@ export function AgentView() {
           <Step n={4} title="Start the loop">
             {client === 'claude' ? (
               <>
-                <p>Run the server's prompt. The agent keeps calling get_next_work until the board is done, paused, or waiting for you:</p>
+                <p>Run the server's prompt. The agent keeps working until the board is done or you stop it; while paused or waiting for you, it stays connected and carries on when you resume:</p>
                 <CodeBlock code={prompt} />
                 <p className="flex items-start gap-1.5">
                   <Repeat className="mt-0.5 size-3.5 shrink-0 text-accent" />

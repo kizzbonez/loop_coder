@@ -140,4 +140,5 @@ Work through the board using the \`loopcoder\` MCP tools:
 3. Finish the step with the tool the instructions name (\`move_work_item\`, \`mark_refined\`, \`start_sprint\`, \`complete_sprint\`, \`complete_kickoff\`, \`request_human_input\`).
 4. Repeat from step 1.
 
-Stop when \`get_next_work\` reports the project is complete, paused, or waiting for humans, and summarise what you did. Keep remarks factual and concise; humans watch the board live.`;
+When \`get_next_work\` reports **PAUSED** or **WAITING** (a human paused you, or nothing can move until a human answers), do not end: call \`wait_for_work\` and keep calling it while it reports PAUSED or WAITING. It returns the next work the moment a human resumes the project, answers or frees up an item; then carry on from step 2.
+End your session, with a short summary of what you did, only when it reports **STOPPED** (a human stopped you), **COMPLETE** or **DISABLED**. Keep remarks factual and concise; humans watch the board live.`;

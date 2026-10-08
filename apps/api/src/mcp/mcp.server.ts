@@ -34,19 +34,24 @@ import {
   boardSummary,
   completeKickoff,
   completeSprintFromReview,
+  DEFAULT_WAIT_SECONDS,
   getNextWork,
   logProgress,
   markRefined,
   moveWorkItem,
   releaseWorkItem,
   requestHumanInput,
+  MAX_WAIT_SECONDS,
   startSprintFromPlanning,
   updateProjectNotes,
+  waitForWork,
+  type NoWorkStatus,
+  type WorkPackage,
 } from '../modules/workflow/workflow.service';
 import { formatTaskDetail, formatTaskRow } from './mcp.format';
 
 const SERVER_INSTRUCTIONS = `Loop Coder is an Agile/Scrum Kanban board you work through as a full delivery team.
-Start with get_next_work for a project; it tells you which role to play and exactly what to do. Finish each step with the tool it names, then call get_next_work again. Humans watch the board live and can pause you.`;
+Start with get_next_work for a project; it tells you which role to play and exactly what to do. Finish each step with the tool it names, then call get_next_work again. Humans watch the board live: when they pause you, call wait_for_work until they resume; when they stop you, end your session.`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,6 +72,15 @@ function fail(err: unknown): CallToolResult {
   }
   throw err;
 }
+
+/** What the agent does next when there is no work, appended to the reason. */
+const NEXT_STEP: Record<NoWorkStatus, string> = {
+  paused: 'Do not end your session: call `wait_for_work` and keep calling it while it reports PAUSED. It returns the next work as soon as the project is resumed.',
+  waiting: 'Do not end your session: call `wait_for_work` and keep calling it while it reports WAITING. It returns as soon as a human answers or work frees up.',
+  stopped: 'End your session now: call no more tools for this project and summarise what you did. A human restarts you when there is more to do.',
+  complete: 'End your session and summarise what you did.',
+  disabled: 'End your session and summarise what you did.',
+};
 
 function run(fn: () => string): CallToolResult {
   try {
@@ -188,6 +202,26 @@ export function buildMcpServer(actor: Actor): McpServer {
 
   // --- The loop ---------------------------------------------------------------
 
+  /** Shows the agent what it got: instructions for work, or the status and what to do next. */
+  const present = (projectId: string, pkg: WorkPackage): string => {
+    if (pkg.kind === 'task') {
+      touch(projectId, { taskId: pkg.task.id, roleKey: pkg.role.key, ceremony: null, activity: `Working on ${pkg.task.key} as ${pkg.role.name}` });
+      const detail = formatTaskDetail(pkg.task, {
+        columnName: pkg.column.name,
+        roleName: pkg.role.name,
+        keyById: keyIndex(projectId),
+      });
+      return `${pkg.instructions}\n\n${detail}`;
+    }
+    if (pkg.kind === 'ceremony') {
+      const label = CEREMONY_LABELS[pkg.ceremony];
+      touch(projectId, { taskId: null, roleKey: pkg.role.key, ceremony: pkg.ceremony, activity: `${label} as ${pkg.role.name}` });
+      return pkg.instructions;
+    }
+    touch(projectId, { taskId: null, roleKey: null, ceremony: null, activity: pkg.message });
+    return `STATUS: ${pkg.status.toUpperCase()}\n${pkg.message}\n${NEXT_STEP[pkg.status]}`;
+  };
+
   server.registerTool(
     'get_next_work',
     {
@@ -199,24 +233,29 @@ export function buildMcpServer(actor: Actor): McpServer {
     ({ project }) =>
       run(() => {
         const p = resolveProject(actor, project, 'editor');
-        const pkg = getNextWork(actor, p.id);
-        if (pkg.kind === 'task') {
-          touch(p.id, { taskId: pkg.task.id, roleKey: pkg.role.key, ceremony: null, activity: `Working on ${pkg.task.key} as ${pkg.role.name}` });
-          const detail = formatTaskDetail(pkg.task, {
-            columnName: pkg.column.name,
-            roleName: pkg.role.name,
-            keyById: keyIndex(p.id),
-          });
-          return `${pkg.instructions}\n\n${detail}`;
-        }
-        if (pkg.kind === 'ceremony') {
-          const label = CEREMONY_LABELS[pkg.ceremony];
-          touch(p.id, { taskId: null, roleKey: pkg.role.key, ceremony: pkg.ceremony, activity: `${label} as ${pkg.role.name}` });
-          return pkg.instructions;
-        }
-        touch(p.id, { taskId: null, roleKey: null, ceremony: null, activity: pkg.message });
-        return `STATUS: ${pkg.status.toUpperCase()}\n${pkg.message}`;
+        return present(p.id, getNextWork(actor, p.id));
       }),
+  );
+
+  server.registerTool(
+    'wait_for_work',
+    {
+      title: 'Wait for work',
+      description: `Call when get_next_work reports PAUSED or WAITING. Waits up to \`seconds\` (default ${DEFAULT_WAIT_SECONDS}, at most ${MAX_WAIT_SECONDS}) for a human to resume the project, answer a question or free up work, and returns the next work as soon as there is some, exactly like get_next_work. If it still reports PAUSED or WAITING, call it again. It returns STOPPED at once when a human stops you.`,
+      inputSchema: {
+        project: projectArg,
+        seconds: z.number().int().min(1).max(MAX_WAIT_SECONDS).optional().describe(`How long to wait at most (default ${DEFAULT_WAIT_SECONDS})`),
+      },
+    },
+    async ({ project, seconds }, extra) => {
+      try {
+        const p = resolveProject(actor, project, 'editor');
+        const pkg = await waitForWork(actor, p.id, { maxWaitMs: (seconds ?? DEFAULT_WAIT_SECONDS) * 1000, signal: extra.signal });
+        return ok(present(p.id, pkg));
+      } catch (err) {
+        return fail(err);
+      }
+    },
   );
 
   // --- Work items ---------------------------------------------------------------

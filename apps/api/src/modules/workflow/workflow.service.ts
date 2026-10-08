@@ -12,7 +12,7 @@ import { boardColumns, projects, sprints, tasks, workspaces, type AgentRoleRow, 
 import { claimantOf, type Actor } from '../../lib/actor';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import { addMinutes, now } from '../../lib/time';
-import { EventBatch } from '../../realtime/bus';
+import { EventBatch, subscribe } from '../../realtime/bus';
 import { actorLabel, agentNameOf, recordActivity } from '../activity/activity.service';
 import { requireProjectAccess } from '../projects/access';
 import { columnByKind, getColumns, getProjectRow } from '../projects/projects.query';
@@ -31,7 +31,7 @@ import {
   taskInstructions,
 } from './instructions';
 
-export type NoWorkStatus = 'paused' | 'disabled' | 'complete' | 'waiting';
+export type NoWorkStatus = 'paused' | 'stopped' | 'disabled' | 'complete' | 'waiting';
 
 export type WorkPackage =
   | {
@@ -225,12 +225,11 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
   const batch = new EventBatch();
   const pkg = db.transaction((tx): WorkPackage => {
     const project = getProjectRow(projectId, tx);
+    if (project.agentState === 'stopped') {
+      return { kind: 'none', status: 'stopped', message: 'A human stopped the agent for this project.' };
+    }
     if (project.agentState === 'paused') {
-      return {
-        kind: 'none',
-        status: 'paused',
-        message: 'A human paused the agent for this project. Stop working and wait until it is resumed from the board.',
-      };
+      return { kind: 'none', status: 'paused', message: 'A human paused the agent for this project.' };
     }
     const claimant = claimantOf(actor);
     const t = now();
@@ -405,6 +404,63 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
     };
   });
   batch.flush();
+  return pkg;
+}
+
+// ---------------------------------------------------------------------------
+// Waiting for work (pause and resume)
+// ---------------------------------------------------------------------------
+
+/**
+ * The longest one wait may hold a request. MCP clients commonly give up on a tool call after
+ * 60 s and the Cloudflare proxy after 100 s of silence, so agents wait in short rounds.
+ */
+export const MAX_WAIT_SECONDS = 50;
+export const DEFAULT_WAIT_SECONDS = 45;
+/** Re-check this often even without board events (claims expire, settings change). */
+const RECHECK_MS = 5_000;
+
+/** Nothing to do yet, but there will be: the agent should wait rather than end. */
+export function shouldWait(pkg: WorkPackage): boolean {
+  return pkg.kind === 'none' && (pkg.status === 'paused' || pkg.status === 'waiting');
+}
+
+/** Resolves on the project's next board event, after `ms`, or when `signal` aborts. */
+function nextChange(projectId: string, ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    let unsubscribe = () => {};
+    const done = () => {
+      clearTimeout(timer);
+      unsubscribe();
+      signal?.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    unsubscribe = subscribe(projectId, done);
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
+
+/**
+ * `getNextWork` for an agent that has to wait: while the project is paused or nothing is
+ * actionable, it waits (up to `maxWaitMs`) for a human to resume, answer or free up work and
+ * returns the work as soon as there is some. It also returns at once when the agent is stopped,
+ * disabled or the project is complete. Nothing is claimed for a client that has gone away.
+ */
+export async function waitForWork(
+  actor: Actor,
+  projectId: string,
+  { maxWaitMs, signal }: { maxWaitMs: number; signal?: AbortSignal },
+): Promise<WorkPackage> {
+  const deadline = Date.now() + maxWaitMs;
+  let pkg = getNextWork(actor, projectId);
+  while (shouldWait(pkg)) {
+    const left = deadline - Date.now();
+    if (left <= 0 || signal?.aborted) break;
+    await nextChange(projectId, Math.min(left, RECHECK_MS), signal);
+    if (signal?.aborted) break;
+    pkg = getNextWork(actor, projectId);
+  }
   return pkg;
 }
 

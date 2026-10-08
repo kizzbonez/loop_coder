@@ -69,8 +69,11 @@ export function lineFromActivity(a: ActivityDTO, stageName: (kind: string) => st
     case 'sprint.completed':
       return { ...base, text: 'Sprint complete! Great work, team.', tone: 'say', cue: 'jingle' };
     case 'agent.paused':
+      return { ...base, text: 'Pausing the agents. Wait for my word.', tone: 'answer' };
     case 'agent.resumed':
-      return { ...base, text: a.action === 'agent.paused' ? 'Pausing the agents.' : 'Agents, back to work!', tone: 'answer' };
+      return { ...base, text: 'Agents, back to work!', tone: 'answer' };
+    case 'agent.stopped':
+      return { ...base, text: 'Stopping the agents. Finish what you are doing.', tone: 'answer' };
     default:
       return null;
   }

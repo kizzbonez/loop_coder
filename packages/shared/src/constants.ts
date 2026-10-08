@@ -55,8 +55,11 @@ export const STORY_POINTS = [0, 1, 2, 3, 5, 8, 13, 21] as const;
 export const SPRINT_STATUSES = ['planned', 'active', 'completed'] as const;
 export type SprintStatus = (typeof SPRINT_STATUSES)[number];
 
-/** Whether the agent may pick up work in a project (controlled from the UI). */
-export const AGENT_STATES = ['active', 'paused'] as const;
+/**
+ * Whether the agent may pick up work in a project (controlled from the board): active works,
+ * paused agents wait connected and carry on when resumed, stopped agents end their session.
+ */
+export const AGENT_STATES = ['active', 'paused', 'stopped'] as const;
 export type AgentState = (typeof AGENT_STATES)[number];
 
 export const REMARK_KINDS = [

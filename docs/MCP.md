@@ -45,7 +45,8 @@ one project. `item` is a work item key (`SHOP-12`) or id.
 |---|---|---|
 | `list_projects` | none | Projects you can access, with progress, agent state and repository folder. |
 | `get_project_context` | `project` | Goal, Definition of Ready and Done, project notes, board summary, active sprint, available roles. |
-| `get_next_work` | `project` | Claims the next work item or ceremony and returns the role to play plus step-by-step instructions. Returns `STATUS: PAUSED / DISABLED / WAITING / COMPLETE` when there is nothing to do. |
+| `get_next_work` | `project` | Claims the next work item or ceremony and returns the role to play plus step-by-step instructions. When there is nothing to do it returns a status and what to do next: `PAUSED` or `WAITING` (call `wait_for_work`), `STOPPED`, `COMPLETE` or `DISABLED` (end the session). |
+| `wait_for_work` | `project`, `seconds?` | For a paused or waiting agent: waits up to `seconds` (default 45, at most 50, below common MCP client and proxy timeouts) and returns the next work as soon as a human resumes, answers or frees up an item, exactly like `get_next_work`. Returns `STOPPED` at once when a human stops the agent. Still `PAUSED` or `WAITING` after the wait: call it again. A wait that the client abandons never claims work. |
 | `get_work_item` | `item` | Full item with acceptance criteria and remark thread. |
 | `list_work_items` | `project`, `column?`, `type?`, `active_sprint_only?`, `limit?` | Compact list of items. |
 | `create_work_items` | `project`, `items[]` | Batch create. Each item may carry a `ref` used by other items' `parent` and `depends_on`. Fields: `type, title, description, acceptance_criteria, priority, story_points, parent, depends_on, assigned_role, labels, refined`. |

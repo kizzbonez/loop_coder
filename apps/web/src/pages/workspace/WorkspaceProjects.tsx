@@ -1,4 +1,4 @@
-import { Bot, CirclePause, Plus, Search, SquareKanban } from 'lucide-react';
+import { Bot, CirclePause, CircleStop, Plus, Search, SquareKanban } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { ProjectDTO } from '@loop/shared';
@@ -39,6 +39,10 @@ function ProjectCard({ project }: { project: ProjectDTO }) {
           {project.agentState === 'paused' ? (
             <Badge tone="warning">
               <CirclePause className="size-3" /> Paused
+            </Badge>
+          ) : project.agentState === 'stopped' ? (
+            <Badge>
+              <CircleStop className="size-3" /> Stopped
             </Badge>
           ) : !project.kickoffCompletedAt ? (
             <Badge tone="accent">

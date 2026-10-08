@@ -94,6 +94,7 @@ describe('MCP transport and authentication', () => {
         'start_sprint',
         'update_project_notes',
         'update_work_item',
+        'wait_for_work',
       ].sort(),
     );
     for (const tool of res.body.result.tools) expect(tool.inputSchema.type).toBe('object');
@@ -109,6 +110,9 @@ describe('MCP transport and authentication', () => {
     expect(text).toContain('SHOP');
     expect(text).toContain('acme/shop');
     expect(text).toContain('get_next_work');
+    // Paused or waiting agents stay connected; only a stop ends the session.
+    expect(text).toContain('wait_for_work');
+    expect(text).toMatch(/End your session[^.]*only when it reports \*\*STOPPED\*\*/);
   });
 
   it('returns tool errors as isError results instead of crashing', async () => {

@@ -250,11 +250,82 @@ describe('the Scrum loop', () => {
 });
 
 describe('controls and safety', () => {
+  const setAgent = (agentState: string) => human.patch(`/api/projects/${project.id}`).send({ agentState }).expect(200);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
   it('stops handing out work when the project is paused, and resumes', async () => {
-    await human.patch(`/api/projects/${project.id}`).send({ agentState: 'paused' }).expect(200);
-    expect(await mcp.ok('get_next_work', P)).toMatch(/STATUS: PAUSED/);
-    await human.patch(`/api/projects/${project.id}`).send({ agentState: 'active' }).expect(200);
+    await setAgent('paused');
+    const paused = await mcp.ok('get_next_work', P);
+    expect(paused).toMatch(/STATUS: PAUSED/);
+    expect(paused).toMatch(/Do not end your session: call `wait_for_work`/);
+    await setAgent('active');
     expect(await mcp.ok('get_next_work', P)).toContain('Project kickoff');
+  });
+
+  it('keeps a paused agent waiting, and hands it work the moment a human resumes', async () => {
+    await setAgent('paused');
+    const started = Date.now();
+    const waiting = mcp.ok('wait_for_work', { ...P, seconds: 20 });
+    await sleep(300);
+    await setAgent('active');
+    const work = await waiting;
+    expect(work).toContain('Project kickoff');
+    expect(Date.now() - started).toBeLessThan(5_000); // woken by the resume, not by the time limit
+  });
+
+  it('gives up after its time limit so the agent can ask again', async () => {
+    await setAgent('paused');
+    const started = Date.now();
+    const res = await mcp.ok('wait_for_work', { ...P, seconds: 1 });
+    expect(res).toMatch(/STATUS: PAUSED/);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+    const limit = await mcp.call('wait_for_work', { ...P, seconds: 51 }); // MCP clients and proxies time out sooner
+    expect(limit.isError).toBe(true);
+  });
+
+  it('tells a waiting agent to end its session when a human stops it, until resumed', async () => {
+    await setAgent('paused');
+    const waiting = mcp.ok('wait_for_work', { ...P, seconds: 20 });
+    await sleep(300);
+    await setAgent('stopped');
+    const stopped = await waiting;
+    expect(stopped).toMatch(/STATUS: STOPPED/);
+    expect(stopped).toMatch(/End your session now/);
+    // An agent that is still working hears it with its next get_next_work, and waiting returns at once.
+    expect(await mcp.ok('get_next_work', P)).toMatch(/STATUS: STOPPED/);
+    expect(await mcp.ok('wait_for_work', { ...P, seconds: 20 })).toMatch(/STATUS: STOPPED/);
+    await setAgent('active');
+    expect(await mcp.ok('get_next_work', P)).toContain('Project kickoff');
+    const activity = (await human.get(`/api/projects/${project.id}/activity`).expect(200)).body.items as Array<{ action: string; message: string }>;
+    const changes = activity.filter((a) => a.action.startsWith('agent.')).map((a) => a.action);
+    expect(changes).toEqual(['agent.resumed', 'agent.stopped', 'agent.paused']);
+    expect(activity.find((a) => a.action === 'agent.stopped')?.message).toMatch(/stopped the agent$/);
+  });
+
+  it('never claims work for an agent that went away while waiting', async () => {
+    await setAgent('paused');
+    // The client gives up after 300 ms (a timeout or a closed session).
+    await expect(mcp.rpc('tools/call', { name: 'wait_for_work', arguments: { ...P, seconds: 20 } }).timeout(300)).rejects.toThrow(/Timeout/);
+    await sleep(100);
+    await setAgent('active');
+    await sleep(300);
+    // Had the abandoned wait claimed the kickoff, another session would be told to wait.
+    const other = mcpClient(app, await createToken(human));
+    expect(await other.ok('get_next_work', P)).toContain('Project kickoff');
+  });
+
+  it('waits for a human answer when nothing else can move', async () => {
+    await mcp.ok('get_next_work', P);
+    await mcp.ok('create_work_items', { ...P, items: [{ title: 'Needs a decision' }] });
+    await mcp.ok('complete_kickoff', { ...P, summary: 'ok' });
+    await mcp.ok('get_next_work', P);
+    await mcp.ok('request_human_input', { item: 'SHOP-1', question: 'Which colour?' });
+    expect(await mcp.ok('get_next_work', P)).toMatch(/STATUS: WAITING[\s\S]*call `wait_for_work`/);
+    const waiting = mcp.ok('wait_for_work', { ...P, seconds: 20 });
+    await sleep(300);
+    const item = await task('SHOP-1');
+    await human.post(`/api/tasks/${item.id}/remarks`).send({ body: 'Raspberry', kind: 'answer', resume: true }).expect(201);
+    expect(await waiting).toContain('# SHOP-1');
   });
 
   it('honours the global admin kill switch', async () => {

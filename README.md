@@ -6,7 +6,7 @@ You describe what to build. Your coding agent (Claude Code, Cursor, VS Code Copi
 other MCP client) connects to Loop Coder's MCP server and runs a whole delivery team: as **Project Manager** it plans the backlog, then it designs,
 implements, reviews and tests each item in the matching role, writing remarks as it goes,
 until every card is in **Done**. You watch the board update live, answer the questions it
-asks, and can pause it at any time.
+asks, and can pause, resume or stop it at any time.
 
 - **Workspaces → projects → one board per project**, with members and roles per workspace.
 - **Real SDLC and Scrum:** epics, stories, tasks, bugs, spikes; story points; dependencies;
@@ -103,7 +103,9 @@ starts. Migrations run automatically on every start.
    instructions. The [user guide](docs/USER_GUIDE.md) and [docs/MCP.md](docs/MCP.md) cover each case.
 
 The agent repeatedly calls `get_next_work`, does what the returned role and instructions
-say, and hands the item on. It stops when the board is done, paused, or waiting for you.
+say, and hands the item on. When you pause it, or it needs your answer, it waits connected
+(`wait_for_work`) and carries on the moment you resume or answer. It ends when the board is
+done or you click **Stop agent**.
 Every action on the board is labelled with the agent's name (taken from the MCP client).
 
 ## How the board works
@@ -130,7 +132,7 @@ Settings). Roles and their instructions are edited in Administration → Agent r
 ## Managing Loop Coder
 
 - **Workspace roles:** *owner* manages members and settings; *editor* works with items and
-  sprints and can pause or resume the agent; *viewer* has read-only access. Every project
+  sprints and can pause, resume or stop the agent; *viewer* has read-only access. Every project
   inherits its workspace's access.
 - **Platform administrators** (Administration) manage all users, workspaces and projects,
   agent roles, global settings (registration, password policy, session and token lifetime,
@@ -221,5 +223,6 @@ docs/         Architecture, MCP reference, security, development
   header is missing the `Bearer ` prefix. Create a new one on the project's Agent tab.
 - **The file browser is empty:** the agent has not written code yet, or it works in a different
   folder than `workspaces/<workspace>/<project>`.
-- **The agent says "STATUS: PAUSED":** resume it from the board header. Also check
+- **The agent says "STATUS: PAUSED":** it is waiting; resume it from the board header and it
+  carries on. **"STATUS: STOPPED"**: resume, then start the agent again. For **DISABLED**, check
   Administration → Settings → *Agent work enabled*.

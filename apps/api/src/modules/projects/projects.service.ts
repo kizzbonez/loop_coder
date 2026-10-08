@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type {
   AccessLevel,
+  AgentState,
   ColumnDTO,
   ColumnKind,
   CreateProjectInput,
@@ -246,6 +247,9 @@ export function createProject(actor: Actor, input: CreateProjectInput): ProjectD
   return getProjectDetail(actor, project.id);
 }
 
+/** Activity for each agent state change: agent.resumed, agent.paused, agent.stopped. */
+const AGENT_STATE_VERBS: Record<AgentState, string> = { active: 'resumed', paused: 'paused', stopped: 'stopped' };
+
 export function updateProject(actor: Actor, projectId: string, patch: UpdateProjectInput): ProjectDTO {
   const onlyAgentState = Object.keys(patch).every((k) => k === 'agentState');
   requireProjectAccess(actor, projectId, onlyAgentState ? 'editor' : 'owner');
@@ -258,12 +262,8 @@ export function updateProject(actor: Actor, projectId: string, patch: UpdateProj
       .where(eq(projects.id, projectId))
       .run();
     if (patch.agentState && patch.agentState !== before.agentState) {
-      recordActivity(tx, batch, {
-        projectId,
-        actor,
-        action: patch.agentState === 'paused' ? 'agent.paused' : 'agent.resumed',
-        message: `${actorLabel(actor)} ${patch.agentState === 'paused' ? 'paused' : 'resumed'} the agent`,
-      });
+      const verb = AGENT_STATE_VERBS[patch.agentState];
+      recordActivity(tx, batch, { projectId, actor, action: `agent.${verb}`, message: `${actorLabel(actor)} ${verb} the agent` });
     }
   });
 

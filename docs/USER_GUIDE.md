@@ -270,11 +270,18 @@ and the board updates live while the agent works.
 The header shows which agent is working, in which role, on which item, and what it is
 doing right now. **Live** next to the project name means updates arrive in real time.
 
-![Agent status and the pause button](images/guide/14-agent-status.png)
+![Agent status with the pause and stop buttons](images/guide/14-agent-status.png)
 
-Click **Pause agent** to stop the agent from taking new work. It finishes its current step
-and then reports that the project is paused. Click **Resume agent** to continue. Editors and
-owners can pause and resume.
+Three buttons control the agent. Editors and owners can use them.
+
+| Button | What the agent does |
+|---|---|
+| **Pause agent** | Finishes its current step, then waits. It stays connected (checking in about once a minute) and carries on by itself the moment you click **Resume agent**. |
+| **Resume agent** | Carries on at once if it was waiting. After a stop, the agent may work again, but you start it again from your coding agent (the Agent tab shows how). |
+| **Stop agent** | Finishes its current step and ends its session. Use it when you are done for the day or want to change something before it continues. |
+
+The agent also waits, rather than ending, when nothing can move until you answer a question
+in **Needs Human**: answer it and the agent picks the work up again.
 
 The line under the title shows the active sprint, its goal and progress, how many items are
 done, and a red **waiting for you** badge when the agent needs an answer.
@@ -598,12 +605,14 @@ sideways to see all columns.
 
 Answers to the questions people ask most often, from a paused agent to a locked account.
 
-**The agent says "STATUS: PAUSED".** Someone paused the project. Click **Resume agent** on the
-board. If it says **DISABLED**, an administrator has turned off agent work under
-Administration → Settings.
+**The agent says "STATUS: PAUSED".** Someone paused the project. The agent keeps waiting and
+carries on when you click **Resume agent** on the board. If it says **STOPPED**, someone stopped
+it: click **Resume agent**, then start the agent again from your coding agent. If it says
+**DISABLED**, an administrator has turned off agent work under Administration → Settings.
 
 **The agent says "STATUS: WAITING".** Nothing can move without people. Check **Needs Human**,
-items assigned to a human owner, and items whose dependencies are not done.
+items assigned to a human owner, and items whose dependencies are not done. The agent waits
+and carries on as soon as you answer or free up an item.
 
 **The agent cannot connect (401 Unauthorized).** The token is wrong, expired or revoked, or
 the `Bearer ` prefix is missing from the header. Create a new token on the Agent tab.

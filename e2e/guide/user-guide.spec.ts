@@ -247,7 +247,7 @@ test('capture the user guide screenshots', async ({ page, browser, request }) =>
   await expect(page.getByText('Claude Code is working as Senior Developer')).toBeVisible();
   await snap(page, '12-board');
   await snapEl(page.getByRole('region', { name: 'In Progress', exact: true }).getByRole('button', { name: /CANDLE-8/ }), '13-card-working');
-  await snapEl(page.getByRole('button', { name: 'Pause agent' }).locator('..'), '14-agent-status');
+  await snapEl(page.getByRole('button', { name: 'Pause agent' }).locator('../..'), '14-agent-status');
   await snapEl(page.getByRole('region', { name: 'To Do', exact: true }).locator('header'), '15-column-header');
 
   // Flow view: live graph, then CANDLE-5's journey (it went back from review once).
