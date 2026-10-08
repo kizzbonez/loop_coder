@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-08
+
 ### Added
 
 - **API agents**: on a project's **Agent** tab, administrators add agents that Loop Coder runs
