@@ -1,7 +1,7 @@
 {
   "name": "loop-coder",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "Agile Kanban web app with an MCP server that an AI coding agent (Claude Code, Cursor, VS Code…) works through until the board is done.",
   "workspaces": [

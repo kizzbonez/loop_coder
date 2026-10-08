@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-08
+
 ### Changed
 
 - **The Agent tab lists your agents on the project** (every access token that can work on it),
