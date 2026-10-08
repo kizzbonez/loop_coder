@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
 ### Added
 
 - **A replay for each sprint.** The Flow and Office tabs replay the whole project, the kickoff
