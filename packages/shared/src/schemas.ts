@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AI_PROVIDER_PRESET_IDS } from './providers';
+import { AI_PROVIDER_PRESET_IDS, API_AGENT_DEFAULTS } from './providers';
 import {
   AGENT_STATES,
   GIT_MODES,
@@ -137,6 +137,39 @@ export const agentRoleKeysSchema = z
   .max(30)
   .transform((keys) => [...new Set(keys)]);
 export const updateTokenSchema = z.object({ roleKeys: agentRoleKeysSchema.nullable() });
+
+/** An API agent's name: shown on the board and in the office. */
+const apiAgentNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .regex(/^[\p{L}\p{N}][\p{L}\p{N} ._'()-]*$/u, 'Letters, digits, spaces and . _ \' ( ) - only');
+
+export const createApiAgentSchema = z.object({
+  projectId: uuidSchema,
+  name: apiAgentNameSchema,
+  providerId: uuidSchema,
+  /** Empty: the provider's default model. */
+  model: modelNameSchema.default(''),
+  /** The roles it plays; null for every role. */
+  roleKeys: agentRoleKeysSchema.nullable().default(null),
+  dailyTokenLimit: z.number().int().min(10_000).max(100_000_000).default(API_AGENT_DEFAULTS.dailyTokenLimit),
+  maxTurnsPerStep: z.number().int().min(5).max(200).default(API_AGENT_DEFAULTS.maxTurnsPerStep),
+  /** Whether it may run shell commands (tests, git) in its sandbox. */
+  canRunCommands: z.boolean().default(true),
+});
+export const updateApiAgentSchema = z
+  .object({
+    name: apiAgentNameSchema,
+    providerId: uuidSchema,
+    model: modelNameSchema,
+    roleKeys: agentRoleKeysSchema.nullable(),
+    dailyTokenLimit: z.number().int().min(10_000).max(100_000_000),
+    maxTurnsPerStep: z.number().int().min(5).max(200),
+    canRunCommands: z.boolean(),
+  })
+  .partial();
 
 export const createTokenSchema = z
   .object({
@@ -348,6 +381,8 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type CreateTokenInput = z.input<typeof createTokenSchema>;
 export type UpdateTokenInput = z.input<typeof updateTokenSchema>;
 export type CreateAiProviderInput = z.input<typeof createAiProviderSchema>;
+export type CreateApiAgentInput = z.input<typeof createApiAgentSchema>;
+export type UpdateApiAgentInput = z.input<typeof updateApiAgentSchema>;
 export type UpdateAiProviderInput = z.input<typeof updateAiProviderSchema>;
 export type CreateWorkspaceInput = z.input<typeof createWorkspaceSchema>;
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;

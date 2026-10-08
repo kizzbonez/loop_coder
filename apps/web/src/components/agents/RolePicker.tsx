@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { useRoles } from '../../lib/queries';
 
 /**
@@ -8,7 +8,7 @@ import { useRoles } from '../../lib/queries';
  * `null` means every role; an empty list is not a valid choice. The roles are always listed, so
  * it is clear what "every role" covers.
  */
-export function RolePicker({ value, onChange }: { value: string[] | null; onChange: (value: string[] | null) => void }) {
+export function RolePicker({ value, onChange, hint }: { value: string[] | null; onChange: (value: string[] | null) => void; hint?: ReactNode }) {
   const roles = useRoles();
   const name = useId();
   const list = (roles.data ?? []).filter((r) => r.enabled);
@@ -45,8 +45,8 @@ export function RolePicker({ value, onChange }: { value: string[] | null; onChan
       </div>
       {!every && value.length === 0 && <p className="text-xs text-danger">Choose at least one role.</p>}
       <p className="text-xs text-muted">
-        Running several agents? Give each its own token and roles, for example one that builds and one that reviews and tests. Only a Project Manager runs the kickoff,
-        planning and sprint reviews.
+        {hint ??
+          'Running several agents? Give each its own token and roles, for example one that builds and one that reviews and tests. Only a Project Manager runs the kickoff, planning and sprint reviews.'}
       </p>
     </fieldset>
   );

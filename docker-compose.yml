@@ -39,6 +39,8 @@ services:
       SETUP_CODE: ${SETUP_CODE:-}
       # Encrypts AI provider API keys at rest (`npm run secrets-key` adds one to .env).
       LOOP_SECRETS_KEY: ${LOOP_SECRETS_KEY:-}
+      # Shared with the runner of API agents (`npm run secrets-key` adds it to .env).
+      LOOP_RUNNER_SECRET: ${LOOP_RUNNER_SECRET:-}
       # The API has no route to the internet: outbound HTTPS goes through the egress gateway,
       # which lets through only the hosts of enabled AI providers.
       HTTPS_PROXY: http://egress:3128
@@ -81,6 +83,44 @@ services:
       resources:
         limits:
           memory: 64m
+
+  # Runs the API agents administrators start (each with an AI provider's model). It reaches only
+  # the API: no internet, no provider keys (the API's model relay adds them). Agents' files and
+  # commands run as an unprivileged user that cannot read the runner's tokens.
+  runner:
+    <<: *hardening
+    image: loop-coder-runner:${APP_VERSION:-0.8.0}
+    build:
+      context: .
+      dockerfile: apps/runner/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.8.0}
+    environment:
+      LOOP_API_URL: http://api:3000
+      LOOP_RUNNER_SECRET: ${LOOP_RUNNER_SECRET:-}
+    # Only what is needed to run agents' tools as their own user, and to stop them.
+    cap_add:
+      - SETUID
+      - SETGID
+      - KILL
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      # Project code the agents work on (read-write, unlike the API's view).
+      - ${WORKSPACES_HOST_DIR:-./workspaces}:/workspaces
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/agent:uid=1000,gid=1000,mode=0700
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2"
+          pids: 512
 
   web:
     <<: *hardening

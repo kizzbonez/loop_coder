@@ -31,6 +31,13 @@ export const AI_PROVIDER_PRESETS = [
 export type AiProviderPresetId = (typeof AI_PROVIDER_PRESETS)[number]['id'];
 export const AI_PROVIDER_PRESET_IDS = AI_PROVIDER_PRESETS.map((p) => p.id) as [AiProviderPresetId, ...AiProviderPresetId[]];
 
+/** Whether an API agent is meant to work (the runner starts it) or not. */
+export const API_AGENT_STATES = ['stopped', 'running'] as const;
+export type ApiAgentState = (typeof API_AGENT_STATES)[number];
+
+/** Default limits for a new API agent. */
+export const API_AGENT_DEFAULTS = { dailyTokenLimit: 2_000_000, maxTurnsPerStep: 60 } as const;
+
 export function aiProviderPreset(id: string): AiProviderPreset | undefined {
   return AI_PROVIDER_PRESETS.find((p) => p.id === id);
 }

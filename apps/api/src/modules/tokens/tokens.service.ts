@@ -118,6 +118,38 @@ export function updateTokenRoles(actor: Actor, tokenId: string, roleKeys: string
   return toDTO(selectTokens().where(eq(apiTokens.id, tokenId)).get()!);
 }
 
+/**
+ * A token for an API agent, issued on behalf of the administrator who created it: scoped to one
+ * project and to the agent's roles. Returns the plain secret once, for sealing.
+ */
+export function issueAgentToken(userId: string, projectId: string, name: string, roleKeys: string[] | null, days: number): { id: string; secret: string } {
+  const secret = generateToken(TOKEN_PREFIX);
+  const row = db
+    .insert(apiTokens)
+    .values({
+      userId,
+      projectId,
+      name: name.slice(0, 60),
+      roleKeys: checkRoleKeys(roleKeys),
+      tokenHash: sha256(secret),
+      prefix: secret.slice(0, TOKEN_PREFIX.length + 5),
+      expiresAt: addDays(now(), days),
+    })
+    .returning()
+    .get();
+  return { id: row.id, secret };
+}
+
+/** Change an agent token's roles (internal: the API agent's owner is not the caller). */
+export function setAgentTokenRoles(tokenId: string, roleKeys: string[] | null): void {
+  db.update(apiTokens).set({ roleKeys: checkRoleKeys(roleKeys) }).where(eq(apiTokens.id, tokenId)).run();
+}
+
+/** Revoke a token without an actor (an API agent was deleted or its token replaced). */
+export function revokeTokenById(tokenId: string): void {
+  db.update(apiTokens).set({ revokedAt: now() }).where(and(eq(apiTokens.id, tokenId), isNull(apiTokens.revokedAt))).run();
+}
+
 /** Revoke a token. Non-admins may only revoke their own tokens. */
 export function revokeToken(actor: Actor, tokenId: string, asAdmin = false): void {
   const where = asAdmin

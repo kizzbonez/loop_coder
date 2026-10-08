@@ -11,6 +11,7 @@ import { apiLimiter, authLimiter, mcpLimiter, type RateLimitOptions } from './mi
 import { requestLog } from './middleware/request-log';
 import { accountRoutes } from './modules/account/account.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
+import { llmRelayRoutes } from './modules/api-agents/relay.routes';
 import { authRoutes } from './modules/auth/auth.routes';
 import { projectsRoutes } from './modules/projects/projects.routes';
 import { rolesRoutes } from './modules/roles/roles.routes';
@@ -47,6 +48,9 @@ export function createApp(options: AppOptions = {}): Express {
 
   // MCP endpoint: bearer-token auth, no cookies, own body parser.
   app.use('/mcp', mcpRoutes(mcpLimiter(rateLimit)));
+
+  // The runner of API agents and its model relay: internal network only (nginx never forwards /llm).
+  app.use('/llm', (req, res, next) => (req.get('x-forwarded-for') ? res.status(404).end() : next()), llmRelayRoutes());
 
   // Browser API: session cookie + CSRF protection.
   const api = express.Router();

@@ -3,6 +3,10 @@ import type {
   AiProviderDTO,
   AiProvidersDTO,
   AiProviderTestDTO,
+  ApiAgentDTO,
+  ApiAgentsDTO,
+  CreateApiAgentInput,
+  UpdateApiAgentInput,
   CreateAiProviderInput,
   UpdateAiProviderInput,
   ReplayDTO,
@@ -89,6 +93,7 @@ export const keys = {
     tokens: ['admin', 'tokens'] as const,
     agentSessions: ['admin', 'agent-sessions'] as const,
     aiProviders: ['admin', 'ai-providers'] as const,
+    apiAgents: (projectId: string) => ['admin', 'api-agents', projectId] as const,
     audit: (filter: string) => ['admin', 'audit', filter] as const,
   },
 };
@@ -485,6 +490,30 @@ export function useAiProviderMutations() {
     }),
     remove: useMutation({ mutationFn: (id: string) => api.delete(`/admin/ai-providers/${id}`), onSuccess: refresh }),
     test: useMutation({ mutationFn: (id: string) => api.post<AiProviderTestDTO>(`/admin/ai-providers/${id}/test`), onSuccess: refresh }),
+  };
+}
+
+/** A project's API agents (administrators only). Refreshed often: their status changes as they work. */
+export const useApiAgents = (projectId: string, enabled = true) =>
+  useQuery({
+    queryKey: keys.admin.apiAgents(projectId),
+    queryFn: () => api.get<ApiAgentsDTO>(`/admin/api-agents?projectId=${projectId}`),
+    enabled,
+    refetchInterval: 5_000,
+  });
+
+export function useApiAgentMutations(projectId: string) {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: keys.admin.apiAgents(projectId) });
+  return {
+    create: useMutation({ mutationFn: (input: CreateApiAgentInput) => api.post<ApiAgentDTO>('/admin/api-agents', input), onSuccess: refresh }),
+    update: useMutation({
+      mutationFn: ({ id, input }: { id: string; input: UpdateApiAgentInput }) => api.patch<ApiAgentDTO>(`/admin/api-agents/${id}`, input),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api.delete(`/admin/api-agents/${id}`), onSuccess: refresh }),
+    start: useMutation({ mutationFn: (id: string) => api.post<ApiAgentDTO>(`/admin/api-agents/${id}/start`), onSuccess: refresh }),
+    stop: useMutation({ mutationFn: (id: string) => api.post<ApiAgentDTO>(`/admin/api-agents/${id}/stop`), onSuccess: refresh }),
   };
 }
 

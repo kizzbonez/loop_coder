@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **API agents**: on a project's **Agent** tab, administrators add agents that Loop Coder runs
+  itself with one of the AI providers, for example Gemini building features while Claude Code
+  reviews and tests. Each has a name, a provider and model (or the provider's default), the
+  **roles** it plays, a **daily token limit**, a cap on tool rounds per step, and whether it may
+  run commands; **Start** and **Stop** run it, and the list shows what it is doing, errors and
+  today's tokens.
+  - A new **runner** container works the board for them through the MCP server, exactly like a
+    connected agent, in their own git worktrees. Claude models use the official Anthropic SDK
+    with adaptive thinking, prompt caching and Anthropic's default refusal fallbacks; the other
+    providers use their OpenAI-compatible API.
+  - The runner never holds provider keys: a **model relay** in the API adds them, enforces the
+    agent's model and daily limit, and counts usage. Each agent acts through its own encrypted,
+    auto-renewed project token for its roles.
+  - Agents' files and commands run as an unprivileged user with a clean environment, limited to
+    the project's folders, without internet access.
+- `npm run secrets-key` also creates `LOOP_RUNNER_SECRET`.
+
+### Upgrading
+
+- Run `npm run secrets-key` (it keeps your `LOOP_SECRETS_KEY` and adds `LOOP_RUNNER_SECRET`),
+  then `npm run up`.
+
 ## [0.8.0] - 2026-10-08
 
 ### Added

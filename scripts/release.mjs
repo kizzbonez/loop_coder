@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const MANIFESTS = ['package.json', 'packages/shared/package.json', 'apps/api/package.json', 'apps/web/package.json', 'apps/egress/package.json', 'e2e/package.json'];
+const MANIFESTS = ['package.json', 'packages/shared/package.json', 'apps/api/package.json', 'apps/web/package.json', 'apps/egress/package.json', 'apps/runner/package.json', 'e2e/package.json'];
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
 
 function nextVersion(current, bump) {

@@ -27,6 +27,12 @@ describe('agentDisplayName (MCP clientInfo → board label)', () => {
     expect(agentDisplayName('acme bot')).toBe('Acme Bot');
   });
 
+  it('calls API agents by the name their administrator gave them', () => {
+    expect(agentDisplayName('loop-api-agent/Gemini builder 0.9.0')).toBe('Gemini builder');
+    expect(agentDisplayName('loop-api-agent/QA bot 2')).toBe('QA bot 2');
+    expect(agentDisplayName('loop-api-agent/ 0.9.0')).toBe('Agent');
+  });
+
   it('uses "Agent" when the client is unknown', () => {
     expect(agentDisplayName(null)).toBe('Agent');
     expect(agentDisplayName(undefined)).toBe('Agent');

@@ -22,10 +22,20 @@ const KNOWN_CLIENTS: Array<[RegExp, string]> = [
 
 export const GENERIC_AGENT_NAME = 'Agent';
 
+/** API agents (run by Loop Coder's runner) connect as "loop-api-agent/<their name>". */
+export const API_AGENT_CLIENT_PREFIX = 'loop-api-agent/';
+
 export function agentDisplayName(clientName?: string | null): string {
   if (!clientName) return GENERIC_AGENT_NAME;
+  // An API agent goes by the name its administrator gave it (which may end in a number), followed
+  // by the runner's version.
+  const trimmed = clientName.trim();
+  if (trimmed.startsWith(API_AGENT_CLIENT_PREFIX)) {
+    const name = trimmed.slice(API_AGENT_CLIENT_PREFIX.length).replace(/\s+\d+\.\d+\.\d+\S*$/, '').trim();
+    return name.slice(0, 40) || GENERIC_AGENT_NAME;
+  }
   // Drop a trailing version ("claude-code 2.1.0", "Cursor v1.2").
-  const base = clientName.trim().replace(/\s+v?\d+(?:\.\d+)*\S*$/i, '').trim();
+  const base = trimmed.replace(/\s+v?\d+(?:\.\d+)*\S*$/i, '').trim();
   for (const [pattern, label] of KNOWN_CLIENTS) if (pattern.test(base)) return label;
   const pretty = base
     .replace(/[-_]+/g, ' ')

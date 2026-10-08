@@ -14,6 +14,7 @@ import {
 import {
   AGENT_STATES,
   AI_PROVIDER_KINDS,
+  API_AGENT_STATES,
   GIT_MODES,
   AUTHOR_TYPES,
   CEREMONIES,
@@ -178,6 +179,53 @@ export const aiProviders = sqliteTable(
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex('ai_providers_name_uq').on(t.name)],
+);
+
+/**
+ * API agents: run by Loop Coder's runner with an AI provider's model. Each acts through its own
+ * access token (sealed here, because the runner needs it) with the roles it plays.
+ */
+export const apiAgents = sqliteTable(
+  'api_agents',
+  {
+    id: id(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    providerId: text('provider_id').references(() => aiProviders.id, { onDelete: 'set null' }),
+    model: text('model').notNull().default(''),
+    roleKeys: text('role_keys', { mode: 'json' }).$type<string[] | null>(),
+    dailyTokenLimit: integer('daily_token_limit').notNull(),
+    maxTurnsPerStep: integer('max_turns_per_step').notNull(),
+    canRunCommands: bool('can_run_commands').notNull().default(true),
+    state: text('state', { enum: API_AGENT_STATES }).notNull().default('stopped'),
+    tokenId: text('token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
+    tokenSealed: text('token_sealed'),
+    tokenKeyId: text('token_key_id'),
+    statusActivity: text('status_activity'),
+    statusError: text('status_error'),
+    statusAt: ts('status_at'),
+    createdById: text('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('api_agents_project_name_uq').on(t.projectId, t.name)],
+);
+
+/** Tokens an API agent used per day (UTC), counted by the model relay. */
+export const apiAgentUsage = sqliteTable(
+  'api_agent_usage',
+  {
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => apiAgents.id, { onDelete: 'cascade' }),
+    day: text('day').notNull(),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    requests: integer('requests').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.agentId, t.day] })],
 );
 
 export const apiTokens = sqliteTable(
@@ -489,6 +537,7 @@ export type AgentRoleRow = typeof agentRoles.$inferSelect;
 export type RemarkRow = typeof taskRemarks.$inferSelect;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
 export type AiProviderRow = typeof aiProviders.$inferSelect;
+export type ApiAgentRow = typeof apiAgents.$inferSelect;
 export type ActivityRow = typeof activities.$inferSelect;
 export type AgentSessionRow = typeof agentSessions.$inferSelect;
 export type AgentPresenceLogRow = typeof agentPresenceLog.$inferSelect;

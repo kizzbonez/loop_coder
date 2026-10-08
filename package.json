@@ -18,7 +18,7 @@
     "build": "npm run build -w @loop/shared && npm run build -w @loop/api && npm run build -w @loop/web",
     "build:shared": "npm run build -w @loop/shared",
     "typecheck": "npm run build:shared && npm run typecheck -w @loop/api && npm run typecheck -w @loop/web",
-    "test": "npm run build:shared && npm run test -w @loop/api && npm run test -w @loop/web && npm run test -w @loop/egress",
+    "test": "npm run build:shared && npm run test -w @loop/api && npm run test -w @loop/web && npm run test -w @loop/egress && npm run test -w @loop/runner",
     "test:coverage": "npm run build:shared && npm run test:coverage -w @loop/api",
     "e2e": "npm run test -w @loop/e2e",
     "docs:screenshots": "npm run screenshots -w @loop/e2e",

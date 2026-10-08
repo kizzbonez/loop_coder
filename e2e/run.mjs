@@ -22,6 +22,8 @@ const env = {
   SETUP_CODE: 'E2E-SETUP-CODE-0001',
   // A throwaway master key so the tests can store (fake) AI provider keys.
   LOOP_SECRETS_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+  // Lets the tests start API agents (the e2e stack has no runner, so they never call a model).
+  LOOP_RUNNER_SECRET: 'e2e-runner-secret-e2e-runner-secret-0000',
   // Test the secure default, not the framing allowed for the developer's own sites.
   FRAME_ANCESTORS: 'none',
   // Never share the real stack's edge network (where a tunnel connector may be attached).
@@ -36,7 +38,8 @@ mkdirSync(resolve(root, workspaces), { recursive: true });
 const compose = (...args) => spawnSync('docker', ['compose', '-p', project, ...args], { cwd: root, env, stdio: 'inherit' });
 
 compose('down', '-v', '--remove-orphans');
-const up = compose('up', '-d', '--build', '--wait');
+// No runner: API agents can be started, but no model is ever called.
+const up = compose('up', '-d', '--build', '--wait', '--scale', 'runner=0');
 if (up.status !== 0) {
   console.error('Failed to start the test stack');
   process.exit(up.status ?? 1);

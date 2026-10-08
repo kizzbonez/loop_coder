@@ -6,6 +6,8 @@
 |---|---|---|
 | `apps/web` | React 19, React Router 8, TanStack Query, dnd-kit, Tailwind 4, Vite 8 | UI. Served as static files by unprivileged nginx, which also reverse-proxies `/api` and `/mcp`. |
 | `apps/api` | Node 24, Express 5, Drizzle ORM, better-sqlite3, MCP TypeScript SDK | REST API for the UI, Server-Sent Events for live updates, the MCP server for Claude Code, and the workflow engine. |
+| `apps/egress` | Node 24, no dependencies | The only way out to the internet: HTTPS `CONNECT` to the hosts of enabled AI providers. |
+| `apps/runner` | Node 24, Anthropic SDK, MCP client SDK | Runs API agents: works the board through MCP with a provider's model via the API's model relay; tools run as an unprivileged user. |
 | `packages/shared` | TypeScript + Zod | Domain constants, validation schemas and DTO types used by both sides. |
 | SQLite | WAL mode on the `/data` volume | All state. Created and migrated automatically on start. |
 
@@ -134,6 +136,52 @@ and resets the counter.
   atomically from the enabled providers. It resolves the name itself, refuses private,
   loopback, link-local and other non-public addresses, and connects to the address it
   checked. It never sees request contents (TLS is end to end).
+
+## API agents and the runner
+
+API agents are agents Loop Coder runs itself with an AI provider's model.
+
+- **Configuration** (`modules/api-agents`, table `api_agents`, admin routes
+  `/api/admin/api-agents`): provider, optional model (else the provider's default), role keys,
+  daily token limit, tool rounds per step, whether it may run commands, and `state`
+  (`stopped` | `running`). Each agent owns a normal project-scoped access token for its roles,
+  issued on behalf of the administrator who created it. The plain token is sealed with
+  `LOOP_SECRETS_KEY` (additional data `api-agent:<id>`) because the runner needs it; it is
+  renewed when revoked, near expiry, or sealed under another master key.
+- **Private routes** (`/llm`, mounted in the API but never proxied by nginx, and refused when a
+  request carries `X-Forwarded-For`):
+  - `GET /llm/runner/agents` and `POST /llm/runner/agents/:id/status`, authenticated with
+    `LOOP_RUNNER_SECRET` (constant-time comparison): the running agents with their tokens, and
+    status reports.
+  - The **model relay**: `POST /llm/agents/:id/v1/messages` (Anthropic Messages) and
+    `POST /llm/agents/:id/chat/completions` (OpenAI-compatible), authenticated with the
+    agent's own token. The relay checks the token belongs to that agent, that it is running and
+    within its daily limit (`api_agent_usage`, per UTC day), forces the agent's model, refuses
+    streaming, adds the provider key, forwards through the egress gateway, records usage from
+    the response and returns the provider's answer. Its own errors carry
+    `x-should-retry: false`.
+- **Runner** (`apps/runner`, Node, `@anthropic-ai/sdk` and the MCP client SDK): a supervisor
+  polls `/llm/runner/agents` every 5 s and keeps one worker per running agent. A worker
+  connects to `/mcp` with the agent's token as `loop-api-agent/<name>` (the board shows
+  `<name>`), calls `get_next_work` / `wait_for_work` itself (no tokens spent while waiting),
+  and runs each step as a fresh conversation: system prompt, the step's instructions, the
+  Loop Coder MCP tools (minus those two) and local tools (`list_files`, `read_file`,
+  `write_file`, `edit_file`, `run_command`). The step ends when a finishing tool succeeds
+  (`move_work_item`, `mark_refined`, `start_sprint`, `complete_sprint`, `complete_kickoff`,
+  `request_human_input`, `release_work_item`) or after the configured tool rounds. Claude
+  models go through the official SDK (adaptive thinking, automatic prompt caching,
+  `fallbacks: "default"` with `server-side-fallback-2026-07-01` on models that offer it);
+  other providers through chat completions with tool calls (schemas reduced to a portable
+  subset, provider extras such as Gemini thought signatures passed back). A spent budget waits
+  for the next day; three failures in a row stop the agent with the reason.
+- **Sandbox**: the runner process runs as root with only `SETUID`, `SETGID` and `KILL`. Every
+  file operation (`src/fs-tool.mjs`) and command runs in a child process as uid 1000 with a
+  clean environment (`PATH`, `HOME`, git identity, nothing else), so it can read neither the
+  runner's memory nor its environment. Paths must be inside `<workspace>/<project>` or
+  `<workspace>/<project>.worktrees`, checked again after resolving links. Commands run in their
+  own process group, which is killed when they end or time out. The runner is on the internal
+  network only (no internet) and uses a git config suited to workspaces shared with a Windows
+  host (`autocrlf=input`, relative worktree paths, `safe.directory`).
 
 ## Realtime
 

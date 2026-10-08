@@ -5,11 +5,14 @@ import {
   adminUpdateUserSchema,
   agentRoleSchema,
   createAiProviderSchema,
+  createApiAgentSchema,
   settingsSchema,
   updateAgentRoleSchema,
   updateAiProviderSchema,
+  updateApiAgentSchema,
 } from '@loop/shared';
-import { idParam, parse, queryInt, queryString } from '../../lib/http';
+import { notFound } from '../../lib/errors';
+import { idParam, isUuid, parse, queryInt, queryString } from '../../lib/http';
 import { actorFrom, requireAdmin } from '../../middleware/auth';
 import { audit, listAudit } from '../audit/audit.service';
 import { listAgentSessions } from '../presence/presence.service';
@@ -29,8 +32,8 @@ import {
 import { deleteWorkspace, listAllWorkspaces } from '../workspaces/workspaces.service';
 import { createBackup, getAdminStats, getSystemInfo } from './admin.service';
 import { createAiProvider, deleteAiProvider, listAiProviders, testAiProvider, updateAiProvider } from '../ai-providers/ai-providers.service';
+import { createApiAgent, deleteApiAgent, listApiAgents, setApiAgentState, updateApiAgent } from '../api-agents/api-agents.service';
 
-/** Platform administration. Every route requires the platform `admin` role. */
 /** Administration → AI providers. */
 function aiProviderRoutes(router: Router): void {
   router.get('/ai-providers', (_req, res) => {
@@ -51,10 +54,38 @@ function aiProviderRoutes(router: Router): void {
   });
 }
 
+/** API agents of a project (administrators only: they spend the providers' credits). */
+function apiAgentRoutes(router: Router): void {
+  const aid = (req: Request) => idParam(req, 'id', 'API agent');
+  router.get('/api-agents', (req, res) => {
+    const projectId = queryString(req.query.projectId, 36);
+    if (!projectId || !isUuid(projectId)) throw notFound('Project');
+    res.json(listApiAgents(projectId.toLowerCase()));
+  });
+  router.post('/api-agents', (req, res) => {
+    res.status(201).json(createApiAgent(actorFrom(req), parse(createApiAgentSchema, req.body)));
+  });
+  router.patch('/api-agents/:id', (req, res) => {
+    res.json(updateApiAgent(actorFrom(req), aid(req), parse(updateApiAgentSchema, req.body)));
+  });
+  router.delete('/api-agents/:id', (req, res) => {
+    deleteApiAgent(actorFrom(req), aid(req));
+    res.status(204).end();
+  });
+  router.post('/api-agents/:id/start', (req, res) => {
+    res.json(setApiAgentState(actorFrom(req), aid(req), 'running'));
+  });
+  router.post('/api-agents/:id/stop', (req, res) => {
+    res.json(setApiAgentState(actorFrom(req), aid(req), 'stopped'));
+  });
+}
+
+/** Platform administration. Every route requires the platform `admin` role. */
 export function adminRoutes(): Router {
   const router = Router();
   router.use(requireAdmin);
   aiProviderRoutes(router);
+  apiAgentRoutes(router);
   const uid = (req: Request) => idParam(req, 'id', 'User');
 
   // Overview -------------------------------------------------------------------

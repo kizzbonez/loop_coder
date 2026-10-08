@@ -43,6 +43,13 @@
       "when": 1791437500492,
       "tag": "0005_ai_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791439483069,
+      "tag": "0006_api_agents",
+      "breakpoints": true
     }
   ]
 }

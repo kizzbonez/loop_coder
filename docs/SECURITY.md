@@ -48,9 +48,24 @@ the controls in place and how to deploy safely.
 - The MCP endpoint rejects browser cross-origin requests (DNS-rebinding protection).
 - The file browser is read-only, with path-traversal and symlink-escape protection and size caps.
 
+**AI providers and API agents**
+- Provider API keys and API agents' access tokens are encrypted at rest (AES-256-GCM) with
+  `LOOP_SECRETS_KEY`, which lives only in `.env`. Keys are never returned, logged or audited.
+- Only administrators manage providers and API agents. Each API agent acts through its own
+  token, scoped to one project and its roles.
+- The runner holds no provider keys: the API's model relay adds them, enforces the agent's
+  model and daily token limit and counts usage. The relay and the runner's routes (`/llm`) are
+  reachable only on the internal Docker network.
+- Agents' file operations and commands run as an unprivileged user with a clean environment,
+  limited to the project's folders, with timeouts that kill whatever a command started. The
+  runner has no internet access; the API reaches only enabled providers' hosts through the
+  egress gateway.
+
 **Operations**
 - Containers run as non-root with a read-only root filesystem, every Linux capability
-  dropped, `no-new-privileges`, and memory limits.
+  dropped, `no-new-privileges`, and memory limits. The one exception is the runner of API
+  agents: it starts as root with only `SETUID`, `SETGID` and `KILL`, to run agents' tools as
+  an unprivileged user that cannot read its secrets.
 - The UI port is bound to `127.0.0.1` by default. The database lives on a private volume
   and is never exposed.
 - An audit log records sign-ins, failures, lockouts, admin actions, token changes, settings

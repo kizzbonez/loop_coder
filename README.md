@@ -147,6 +147,11 @@ Settings). Roles and their instructions are edited in Administration → Agent r
   Qwen, Kimi, DeepSeek, OpenRouter or any OpenAI-compatible service, encrypted with
   `LOOP_SECRETS_KEY` (`npm run secrets-key`), never shown again after saving. The server
   reaches only the enabled providers' hosts, through an allow-listed egress gateway.
+- **API agents** (project → Agent tab, administrators): agents Loop Coder runs itself with a
+  provider's model (Claude, Gemini, OpenAI, Qwen, Kimi, …), each with its own roles, model,
+  daily token limit and Start/Stop. They work the board like a Claude Code session, in a
+  sandboxed **runner** container that never sees the provider keys (a model relay in the API
+  adds them and counts tokens).
 - **Access tokens** (Account → Access tokens) can be scoped to one project or one
   workspace and always expire. Revoke them at any time. Each token is one agent and sets the
   roles it plays.
@@ -164,6 +169,7 @@ Copy `.env.example` to `.env`. Every value is optional.
 | `COOKIE_SECURE` | `auto` | Secure cookies when the request came over HTTPS. |
 | `SETUP_CODE` | random | Fixed one-time setup code (otherwise printed to the logs). |
 | `LOOP_SECRETS_KEY` | (none) | Encrypts AI provider API keys at rest. Create it with `npm run secrets-key` (never shown). Without it, keys cannot be saved; if it changes, saved keys must be entered again. Back it up apart from the database. |
+| `LOOP_RUNNER_SECRET` | (none) | Shared by the API and the runner of API agents; `npm run secrets-key` creates it. Without it, API agents cannot start. |
 | `WORKSPACES_HOST_DIR` | `./workspaces` | Host folder for project code, mounted read-only for the file browser. |
 | `LOG_LEVEL` | `info` | API log level (JSON logs). |
 

@@ -64,6 +64,11 @@ const envSchema = z.object({
     .string()
     .optional()
     .refine((value) => !value || parseMasterKey(value) !== null, 'must be 32 bytes as base64 or 64 hex characters (create one with npm run secrets-key)'),
+  /**
+   * Shared secret between the API and the runner that runs API agents (`npm run secrets-key`
+   * creates it). Unset: API agents cannot be run.
+   */
+  LOOP_RUNNER_SECRET: z.string().min(32, 'must be at least 32 characters (create one with npm run secrets-key)').max(200).optional(),
   /** Where to write the hosts the egress gateway may reach (a volume shared with it). Unset: nothing is written. */
   EGRESS_ALLOWLIST_PATH: z.string().optional(),
 });

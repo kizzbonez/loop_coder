@@ -344,6 +344,23 @@ test('capture the user guide screenshots', async ({ page, browser, request }) =>
   await snapEl(page.getByRole('dialog'), '39-admin-ai-providers');
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
 
+  // API agents: a provider (placeholder key; the guide stack runs no runner, so no model is called),
+  // one agent on the project, and the dialog that adds another for chosen roles.
+  const gemini = await api<{ id: string }>(page.request, 'post', '/admin/ai-providers', { name: 'Google Gemini', preset: 'gemini', apiKey: 'AIza-placeholder-for-the-guide-0000', model: 'gemini-3.8-flash' });
+  await api(page.request, 'post', '/admin/api-agents', { projectId, name: 'Gemini builder', providerId: gemini.id, roleKeys: ['backend_developer', 'frontend_developer'], dailyTokenLimit: 1_000_000 });
+  await page.goto(`/p/${projectId}/agent`);
+  const apiAgents = page.getByRole('region', { name: 'API agents' });
+  await expect(apiAgents.getByText('Gemini builder')).toBeVisible();
+  await snapEl(apiAgents, '40-api-agents');
+  await apiAgents.getByRole('button', { name: 'Add API agent' }).click();
+  const addAgent = page.getByRole('dialog');
+  await addAgent.getByLabel('Name').fill('Gemini tester');
+  await addAgent.getByLabel('Only these roles').check();
+  await addAgent.getByLabel('Code Reviewer').check();
+  await addAgent.getByLabel('QA Engineer').check();
+  await snapEl(addAgent, '41-add-api-agent');
+  await addAgent.getByRole('button', { name: 'Cancel' }).click();
+
   // ---------------------------------------------------------------- 6. Dark mode, mobile, sign-in
   const state = await page.context().storageState();
   const dark = await browser.newContext({ storageState: state, colorScheme: 'dark', viewport: { width: 1440, height: 900 } });

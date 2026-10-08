@@ -471,3 +471,36 @@ export interface AiProviderTestDTO {
   models: string[];
   provider: AiProviderDTO;
 }
+
+// ---------------------------------------------------------------------------
+// API agents
+// ---------------------------------------------------------------------------
+
+export interface ApiAgentDTO {
+  id: string;
+  projectId: string;
+  name: string;
+  providerId: string | null;
+  providerName: string | null;
+  providerKind: 'anthropic' | 'openai_compatible' | null;
+  /** The model it uses (the provider's default when none was chosen). */
+  model: string;
+  /** The model chosen for it; empty to follow the provider's default. */
+  modelChoice: string;
+  roleKeys: string[] | null;
+  dailyTokenLimit: number;
+  maxTurnsPerStep: number;
+  canRunCommands: boolean;
+  state: 'stopped' | 'running';
+  /** What the runner last reported: its activity, or why it stopped. */
+  status: { activity: string | null; error: string | null; at: string | null };
+  usageToday: { inputTokens: number; outputTokens: number; requests: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiAgentsDTO {
+  items: ApiAgentDTO[];
+  /** False until LOOP_RUNNER_SECRET is set on the server: no runner can start API agents. */
+  runnerConfigured: boolean;
+}

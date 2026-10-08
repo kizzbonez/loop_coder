@@ -228,6 +228,8 @@ building features while another reviews and tests. Set it up like this:
    so make sure one of them does. The project's **Agent** tab lists **your agents on this
    project** with the roles each plays; click **Roles** next to one to change them (also under
    **Account → Access tokens**). The change applies from the agent's next step.
+   Administrators can also add **API agents** there, which Loop Coder runs itself with an AI
+   provider's key (see [API agents](#api-agents-a-providers-model-plays-chosen-roles)).
 3. **A git worktree per agent.** New projects give every agent its own working copy, so agents
    never edit the same files:
    - each agent works in `workspaces/<workspace>/<project>.worktrees/<agent>`, a git worktree of
@@ -652,9 +654,65 @@ How your keys are protected:
   provider closes its host again.
 - Every change and test is recorded in the audit log (without the key).
 
+Agents connected through Claude Code, Cursor or VS Code keep using their own subscription. To
+let a provider's model play roles on a project, add an **API agent** (next section).
+
+### API agents: a provider's model plays chosen roles
+
+An **API agent** is an agent Loop Coder runs itself, with one of your AI providers, billed by the
+provider per token. It works the board exactly like a connected Claude Code session: it fetches
+the next step, plays the role, writes code in its own git worktree, posts remarks and moves the
+item on. Use it, for example, to let Gemini build features while Claude Code reviews and tests.
+
+**One-time setup on the server.** In the Loop Coder folder, run `npm run secrets-key` (it also
+adds `LOOP_RUNNER_SECRET` to `.env`, without showing it), then `npm run up`. This starts the
+**runner**, the container that runs API agents. Until then the Agent tab says the runner is not
+set up.
+
+**Add one** (administrators): open the project's **Agent** tab, go to **API agents** and click
+**Add API agent**:
+
+| Field | What it does |
+|---|---|
+| **Name** | How the agent appears on the board and in the office, for example *Gemini builder*. |
+| **AI provider** | One of the enabled providers from Administration → AI providers. |
+| **Model** | Leave empty for the provider's default model, or type another (models from the provider's last **Test** are suggested). |
+| **Roles this agent plays** | *Every role*, or only the ones you tick, for example *Backend* and *Frontend Developer*. It gets only work for these roles. Only an agent that plays the **Project Manager** runs the kickoff, planning and reviews, so make sure some agent does. |
+| **Daily token limit** | Input plus output tokens per day (UTC), 2,000,000 by default. When it is spent, the agent waits until the next day. |
+| **Tool rounds per step** | At most this many model calls for one step (one stage of one item, or one ceremony); 60 by default. |
+| **Can run commands** | On: it may run shell commands (git, builds, tests) in its folders. Off: it can only read and write files. |
+
+![API agents on the Agent tab](images/guide/40-api-agents.png)
+
+![Adding an API agent for chosen roles](images/guide/41-add-api-agent.png)
+
+Then click **Start**. Within a few seconds the runner picks it up; the line under its name shows
+what it is doing (for example *CANDLE-12: you are acting as the Backend Developer*), any error,
+and today's tokens and requests. **Stop** stops it after its current model call; **Pause**,
+**Resume** and **Stop** on the board work for it like for any agent. **Edit** changes its model,
+roles or limits from its next step; **Delete** stops it and revokes its access.
+
+How API agents are kept safe:
+
+- **The runner never sees your API keys.** Its model requests go to Loop Coder's model relay,
+  which adds the key, uses the model you chose (the agent cannot pick another), refuses requests
+  once the daily limit is spent, and counts the tokens.
+- **Each agent has its own access token**, limited to its project and roles, kept encrypted with
+  `LOOP_SECRETS_KEY` and renewed automatically. It is never shown.
+- **Files and commands run as an unprivileged user** in the runner container, with a clean
+  environment: they cannot read the agent's token or anything else the runner holds. Paths are
+  limited to the project folder and its worktrees, and commands are stopped after their timeout
+  together with anything they started.
+- **No internet** for the runner: it reaches only Loop Coder's API. Installing packages from the
+  internet inside an agent's command therefore fails; dependencies must already be in the
+  project (or install them yourself), or the agent asks for help with *Needs human*.
+- Creating, changing, starting, stopping and deleting API agents is recorded in the audit log.
+
 > [!NOTE]
-> Saved keys are ready for the API-billed agents that come next; agents connected through
-> Claude Code, Cursor or VS Code keep using their own subscription.
+> For Claude models, API agents use adaptive thinking and Anthropic's server-side **refusal
+> fallbacks** (`fallbacks: "default"`): if the model declines a request, Anthropic retries it on
+> its recommended fallback model, billed at that model's rates. Other providers are used through
+> their OpenAI-compatible API.
 
 ---
 
@@ -707,7 +765,19 @@ appear live. If you move an item the agent is working on to another column, its 
 
 **Does my code leave my computer?** Loop Coder itself never sends your code anywhere. It runs
 in Docker on your machine. Your AI agent uses its own provider (for example Anthropic for
-Claude Code) according to that tool's settings.
+Claude Code) according to that tool's settings. **API agents** send what they read (instructions,
+board content and the files they open) to the AI provider you chose for them.
+
+**An API agent stays "Starting…".** The runner is not running or not set up: run
+`npm run secrets-key` and `npm run up` on the server, and check `docker compose logs runner`.
+
+**An API agent stopped with an error.** The line under its name says why, for example a rejected
+key or an unknown model (check the provider with **Test** under Administration → AI providers), or
+that it failed three times in a row. Fix the cause and click **Start** again.
+
+**An API agent's command cannot install packages.** The runner has no internet access by design.
+Install the project's dependencies yourself, or let a connected Claude Code session do steps that
+need them.
 
 ---
 

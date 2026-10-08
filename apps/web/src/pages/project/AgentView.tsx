@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { MCP_SERVER_NAME } from '@loop/shared';
+import { ApiAgents } from '../../components/agents/ApiAgents';
 import { ProjectAgents } from '../../components/agents/ProjectAgents';
 import { RolePicker } from '../../components/agents/RolePicker';
 import { Badge, Chip } from '../../components/ui/Badge';
@@ -11,7 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { CodeBlock, Section } from '../../components/ui/misc';
 import { errorMessage } from '../../lib/api';
 import { formatDateTime, timeAgo } from '../../lib/format';
-import { useAgentSessions, useTokenMutations } from '../../lib/queries';
+import { useAgentSessions, useMe, useTokenMutations } from '../../lib/queries';
 import { useBoardLookups, useProjectContext } from './context';
 
 type ClientId = 'claude' | 'cursor' | 'vscode' | 'other';
@@ -94,6 +95,7 @@ When get_next_work reports PAUSED or WAITING, do not end: call wait_for_work wit
 
 export function AgentView() {
   const { project, tasks, roles, canEdit } = useProjectContext();
+  const isAdmin = useMe().data?.role === 'admin';
   const lookups = useBoardLookups(project, tasks, roles);
   const sessions = useAgentSessions(project.id);
   const tokens = useTokenMutations();
@@ -168,6 +170,7 @@ export function AgentView() {
       </section>
 
       {canEdit && <ProjectAgents project={project} />}
+      {isAdmin && <ApiAgents project={project} />}
 
       <Section
         title="Connect your AI agent"
