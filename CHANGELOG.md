@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **More life in the agent office.** Idle characters now also nap on the sofa (poke twice to wake
+  them), gossip at the water cooler, water the plants (which perk up), pet the office cat (it
+  purrs and sometimes follows them back to their desk) and talk bugs through with the rubber
+  duck. Each role has a hobby of its own: the PM polishes the trophies, the Architect sketches
+  on the whiteboard, the Designer paints at the easel, DevOps checks the servers, Security
+  patrols, QA hunts bugs with the net and the Technical Writer reads in the library.
+
 ## [0.9.1] - 2026-10-08
 
 ### Fixed

@@ -36,15 +36,23 @@ export function renderOffice(p: Painter, sim: OfficeSim, opts: RenderOptions): v
 
   const items: Array<{ y: number; draw: () => void }> = [];
   for (const f of FURNITURE) items.push({ y: (f.y + f.h) * TILE - 1, draw: () => drawFurniture(p, f, sim) });
-  for (const w of sim.walkers.values()) items.push({ y: w.y, draw: () => drawWalker(p, w, sim, opts.hoverId === w.id) });
+  for (const w of sim.walkers.values()) {
+    const seat = seatOf(w);
+    // Seated on the sofa: drawn just after it, so the person is in front of its back.
+    items.push({ y: seat ? (seat.y + 1) * TILE : w.y, draw: () => drawWalker(p, w, sim, opts.hoverId === w.id) });
+  }
   items.push({ y: sim.cat.y, draw: () => drawCat(p, sim.cat.x, sim.cat.y, sim.cat.dir, Math.floor(sim.cat.walked / 4), sim.catSleeping) });
   items.sort((a, b) => a.y - b.y).forEach((i) => i.draw());
 
   drawFrontWall(p);
 
+  for (const w of sim.walkers.values()) drawPastimeEffect(p, w, sim.now);
+
   const tags: NameTag[] = [];
   for (const w of sim.walkers.values()) {
-    if (w.emote) drawEmote(p, w.emote.kind, w.x, w.y - 30, sim.now);
+    const seat = seatOf(w);
+    const head = seat ? seatFeet(seat).y - 30 : w.y - 30;
+    if (w.emote) drawEmote(p, w.emote.kind, w.x, head, sim.now);
     if (!opts.names) continue;
     if (w.kind === 'human') tags.push({ lines: [{ text: `${w.name} (you)`, style: 'human' }], x: w.x, y: w.y + 3 });
     else {
@@ -188,6 +196,12 @@ function playersAt(sim: OfficeSim, kind: 'console' | 'arcade'): number {
   return n;
 }
 
+/** Whether someone has arrived for a pastime of this kind (to animate the furniture they use). */
+function pastimeHere(sim: OfficeSim, kind: string): boolean {
+  for (const w of sim.walkers.values()) if (w.pastime?.kind === kind && w.pastime.arrived && w.path.length === 0) return true;
+  return false;
+}
+
 function objectActive(sim: OfficeSim, id: string): boolean {
   return (sim.objects.get(id)?.until ?? 0) > sim.now;
 }
@@ -268,6 +282,10 @@ function drawFurniture(p: Painter, f: Furniture, sim: OfficeSim): void {
       px(p, X + 12, Y - 7, 6, 1, PALETTE.blue);
       px(p, X + 15, Y - 4, 1, 5, PALETTE.blue);
       frame(p, X + 11, Y + 0, 10, 4, PALETTE.red);
+      if (pastimeHere(sim, 'whiteboard')) {
+        const n = Math.floor(t * 3) % 8;
+        for (let i = 0; i <= n; i++) px(p, X + 5 + i * 3, Y - 2 + ((i * 5) % 3), 2, 1, PALETTE.green);
+      }
       break;
     }
     case 'easel': {
@@ -379,6 +397,10 @@ function drawFurniture(p: Painter, f: Furniture, sim: OfficeSim): void {
           px(p, tx + 4, ty - 2, 2, 1, PALETTE.yellow);
           px(p, tx + 3, ty - 1, 4, 1, shade(PALETTE.yellow, -0.3));
           px(p, tx + 3, ty - 6, 1, 2, PALETTE.windowShine);
+          if (objectActive(sim, 'trophies') && Math.floor(t * 4 + i) % 4 === 0) {
+            px(p, tx + 6, ty - 9, 1, 3, PALETTE.white);
+            px(p, tx + 5, ty - 8, 3, 1, PALETTE.white);
+          }
         } else {
           px(p, tx + 3, ty - 2, 4, 1, shade(PALETTE.woodDark, -0.2));
         }
@@ -443,22 +465,62 @@ function drawFurniture(p: Painter, f: Furniture, sim: OfficeSim): void {
 // People
 // ---------------------------------------------------------------------------
 
+/** Pastimes where hands keep busy: games, sketching, checking servers, polishing trophies. */
+const HANDS_BUSY = new Set(['console', 'arcade', 'whiteboard', 'easel', 'servers', 'trophies']);
+/** What a character holds during a pastime. */
+const PASTIME_PROPS: Partial<Record<string, Walker['look']['prop']>> = { coffee: 'mug', plants: 'wateringcan', reading: 'book' };
+
+/** The sofa seat of a napper who has sat down. */
+function seatOf(w: Walker): { x: number; y: number } | null {
+  return w.pastime?.kind === 'nap' && w.pastime.arrived && w.path.length === 0 ? (w.pastime.spot.seat ?? null) : null;
+}
+const seatFeet = (seat: { x: number; y: number }) => ({ x: seat.x * TILE + TILE / 2, y: seat.y * TILE + 8 });
+
 function drawWalker(p: Painter, w: Walker, sim: OfficeSim, hovered: boolean): void {
   const walking = w.path.length > 0;
   const shake = w.shakeUntil > sim.now ? Math.round(Math.sin(sim.now * 60) * 1.5) : 0;
   const atDesk = !walking && w.working && w.spot?.face === 'up' && w.station !== 'meeting' && w.station !== 'kanban' && w.station !== 'dock';
-  // Gamers' thumbs move too; on a coffee break everyone holds a mug.
-  const gaming = !walking && (w.pastime?.kind === 'console' || w.pastime?.kind === 'arcade');
-  const look = w.pastime?.kind === 'coffee' && !walking ? { ...w.look, prop: 'mug' as const } : w.look;
-  if (hovered) px(p, w.x - 7, w.y - 1, 14, 3, 'rgba(255, 255, 255, 0.55)');
-  drawCharacter(p, look, w.x, w.y, {
-    dir: w.dir,
+  const busyHands = !walking && Boolean(w.pastime && HANDS_BUSY.has(w.pastime.kind));
+  const prop = !walking && w.pastime ? PASTIME_PROPS[w.pastime.kind] : undefined;
+  const look = prop ? { ...w.look, prop } : w.look;
+  const seat = seatOf(w);
+  const at = seat ? seatFeet(seat) : { x: w.x, y: w.y };
+  if (hovered) px(p, at.x - 7, at.y - 1, 14, 3, 'rgba(255, 255, 255, 0.55)');
+  drawCharacter(p, look, at.x, at.y, {
+    dir: seat ? 'down' : w.dir,
     frame: walking ? Math.floor(w.walked / 4) % 4 : 0,
-    working: atDesk || gaming,
+    working: atDesk || busyHands,
     shake,
     grumpy: w.emote?.kind === 'anger',
-    hop: w.emote?.kind === 'sparkle' ? Math.round(Math.abs(Math.sin(sim.now * 12)) * 2) : 0,
+    hop: w.emote?.kind === 'sparkle' || w.hopUntil > sim.now ? Math.round(Math.abs(Math.sin(sim.now * 12)) * 2) : 0,
   });
+  // Seated: the front of the sofa cushion hides the legs.
+  if (seat) {
+    px(p, at.x - 7, seat.y * TILE + 2, 14, 10, '#4a80cc');
+    px(p, at.x - 7, seat.y * TILE + 2, 14, 1, shade('#4a80cc', 0.15));
+  }
+}
+
+/** Little extras of some pastimes: water from the can, a bug fluttering ahead of the net. */
+function drawPastimeEffect(p: Painter, w: Walker, t: number): void {
+  const pt = w.pastime;
+  if (!pt?.arrived || w.path.length > 0) return;
+  if (pt.kind === 'plants') {
+    // Drops from the can onto the plant beside or below the character.
+    const dx = w.dir === 'left' ? -12 : w.dir === 'right' ? 12 : 4;
+    const top = w.dir === 'down' ? w.y - 8 : w.y - 16;
+    for (let i = 0; i < 3; i++) {
+      const fall = (t * 18 + i * 5) % 12;
+      px(p, w.x + dx - 2 + i * 2, top + fall, 1, 2, PALETTE.blue);
+    }
+  } else if (pt.kind === 'bughunt') {
+    const bx = w.x + Math.round(Math.sin(t * 3.1) * 12);
+    const by = w.y - 20 + Math.round(Math.cos(t * 4.3) * 5);
+    const flap = Math.floor(t * 16) % 2;
+    px(p, bx, by, 2, 2, PALETTE.outline);
+    px(p, bx - 1, by - 1 - flap, 1, 1, PALETTE.windowShine);
+    px(p, bx + 2, by - 1 - flap, 1, 1, PALETTE.windowShine);
+  }
 }
 
 function drawEmote(p: Painter, kind: Emote, x: number, y: number, t: number): void {

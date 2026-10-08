@@ -6,8 +6,8 @@ import { chordNotes, compileTrack, noteToMidi, parseDrums, parseVoice, STEPS, to
 import { COLS, hash, ROWS, safeColor, shade, TILE, WORLD_H, WORLD_W, type Painter } from './pixels';
 import { placeNameTags, renderOffice, TAG_LINE } from './render';
 import { DEFAULT_SETTINGS, parseSettings } from './settings';
-import { bubbleSeconds, CONVERSATIONS, labelOf, OfficeSim, rng, tileFeet, WALK_SPEED, type CastRole, type SimAgent } from './sim';
-import { CHAT_CORNERS, FURNITURE, findPath, GRID, HOT_DESKS, OBJECTS, PASTIME_SPOTS, ROLE_STATIONS, STATIONS, stationFor, walkable, zoneTiles } from './world';
+import { bubbleSeconds, CONVERSATIONS, COOLER_CONVERSATIONS, DUCK_TALKS, labelOf, OfficeSim, rng, tileFeet, WALK_SPEED, type CastRole, type SimAgent } from './sim';
+import { BUG_HUNT_AREA, CHAT_CORNERS, COOLER_CORNER, FURNITURE, findPath, GRID, HOBBIES, HOT_DESKS, OBJECTS, PASTIME_SPOTS, PATROL_ROUTE, ROLE_STATIONS, STATIONS, stationFor, walkable, zoneTiles } from './world';
 
 /** A canvas stand-in that records what is drawn. */
 function fakePainter(scale = 2) {
@@ -293,16 +293,16 @@ describe('office simulation', () => {
     for (const w of sim.walkers.values()) expect(w.spot, w.id).toEqual(w.home);
   });
 
-  it('keeps idle characters busy with games, coffee and chats, and back to work when needed', () => {
+  it('keeps idle characters busy with games, coffee, chats, naps, plants, the cat and the duck, and back to work when needed', () => {
     const sim = office(3);
     const seen = new Set<string>();
     const said = new Set<string>();
-    for (let t = 0; t < 20 * 240; t++) {
+    for (let t = 0; t < 20 * 900; t++) {
       sim.update(0.05);
       for (const w of sim.walkers.values()) if (w.pastime) seen.add(w.pastime.kind);
       for (const b of sim.bubbles.values()) said.add(b.text);
     }
-    expect(seen).toEqual(new Set(['console', 'coffee', 'arcade', 'chat']));
+    for (const kind of ['console', 'coffee', 'arcade', 'chat', 'nap', 'plants', 'cat', 'duck']) expect(seen, kind).toContain(kind);
     // Conversations really happen, line by line.
     const lines = CONVERSATIONS.flat();
     expect([...said].filter((t) => lines.includes(t)).length).toBeGreaterThan(2);
@@ -493,6 +493,208 @@ describe('settings', () => {
     });
     expect(parseSettings({ music: true, track: 'release', textSpeed: 'fast', musicVolume: 0.33 })).toMatchObject({ music: true, track: 'release', textSpeed: 'fast', musicVolume: 0.3 });
     expect(DEFAULT_SETTINGS.music).toBe(false); // never surprise anyone with music
+  });
+});
+
+describe('idle activities', () => {
+  const FULL_CAST: CastRole[] = [
+    ['project_manager', 'Project Manager'],
+    ['architect', 'Software Architect'],
+    ['ui_designer', 'UI/UX Designer'],
+    ['senior_developer', 'Senior Developer'],
+    ['backend_developer', 'Backend Developer'],
+    ['frontend_developer', 'Frontend Developer'],
+    ['code_reviewer', 'Code Reviewer'],
+    ['qa_engineer', 'QA Engineer'],
+    ['devops_engineer', 'DevOps Engineer'],
+    ['security_engineer', 'Security Engineer'],
+    ['tech_writer', 'Technical Writer'],
+  ].map(([key, name]) => ({ key: key!, name: name!, color: null }));
+  const team = (seed = 2) => {
+    const sim = new OfficeSim(seed);
+    sim.setCast(FULL_CAST);
+    return sim;
+  };
+  const w = (sim: OfficeSim, key: string) => sim.walkers.get(`role:${key}`)!;
+  /** Run until the character has got to its pastime (or a time limit). */
+  const untilArrived = (sim: OfficeSim, key: string, seconds = 30) => {
+    for (let t = 0; t < seconds * 20 && !w(sim, key).pastime?.arrived; t++) sim.update(0.05);
+    return w(sim, key).pastime;
+  };
+
+  it('can reach every stop of the patrol and the whole bug-hunting area', () => {
+    const door = STATIONS.door[0]!;
+    for (const s of PATROL_ROUTE) expect(findPath(door, s), `${s.x},${s.y}`).not.toBeNull();
+    const a = BUG_HUNT_AREA;
+    for (let y = a.y; y < a.y + a.h; y++) for (let x = a.x; x < a.x + a.w; x++) expect(findPath(door, { x, y }), `${x},${y}`).not.toBeNull();
+    // Plant spots each belong to a plant, and the nap spot has a seat on the sofa.
+    for (const s of PASTIME_SPOTS.plants) expect(FURNITURE.find((f) => f.id === s.object)?.kind, s.object).toBe('plant');
+    const sofa = FURNITURE.find((f) => f.kind === 'sofa')!;
+    for (const s of PASTIME_SPOTS.nap) expect(s.seat!.y >= sofa.y && s.seat!.x >= sofa.x && s.seat!.x < sofa.x + sofa.w).toBe(true);
+  });
+
+  it('gives each role its own hobby, and only that role takes it up', () => {
+    const byRole = new Map<string, Set<string>>();
+    const hobbies = new Set(Object.values(HOBBIES));
+    // A few long office days (hobbies are a matter of chance: who is free, and a coin toss).
+    for (const seed of [4, 5, 6]) {
+      const sim = team(seed);
+      for (let t = 0; t < 20 * 1500; t++) {
+        sim.update(0.05);
+        for (const ch of sim.walkers.values()) {
+          const kind = ch.pastime?.kind;
+          if (kind && hobbies.has(kind as never)) byRole.set(ch.roleKey!, (byRole.get(ch.roleKey!) ?? new Set()).add(kind));
+        }
+      }
+    }
+    for (const [roleKey, kinds] of byRole) expect([...kinds], roleKey).toEqual([HOBBIES[roleKey]]);
+    // Over a long day every hobby shows up.
+    expect(new Set([...byRole.values()].flatMap((k) => [...k]))).toEqual(hobbies);
+  });
+
+  it('naps on the sofa, mumbles at the first poke and wakes up at the second', () => {
+    const sim = team();
+    expect(sim.beginPastime('role:senior_developer', 'nap')).toBe(true);
+    const nap = untilArrived(sim, 'senior_developer')!;
+    expect(nap.kind).toBe('nap');
+    expect(w(sim, 'senior_developer').emote?.kind).toBe('sleep');
+    // Only one seat: nobody else can nap now.
+    expect(sim.beginPastime('role:backend_developer', 'nap')).toBe(false);
+    expect(sim.poke('role:senior_developer')).toBe('Senior Developer: Zzz... five more minutes.');
+    expect(w(sim, 'senior_developer').pastime?.kind).toBe('nap');
+    expect(sim.poke('role:senior_developer')).toBe("Senior Developer: Huh?! I'm up, I'm up!");
+    expect(w(sim, 'senior_developer').pastime).toBeNull();
+    expect(w(sim, 'senior_developer').spot).toEqual(w(sim, 'senior_developer').home);
+  });
+
+  it('pets the cat: the cat stays, purrs and sometimes follows its friend back to the desk', () => {
+    let followed = false;
+    for (let seed = 1; seed <= 12 && !followed; seed++) {
+      const sim = team(seed);
+      settle(sim, 1);
+      sim.drainCues();
+      expect(sim.beginPastime('role:code_reviewer', 'cat')).toBe(true);
+      expect(sim.cat.path).toEqual([]);
+      const cues: string[] = [];
+      for (let t = 0; t < 20 * 30 && !w(sim, 'code_reviewer').pastime?.arrived; t++) {
+        sim.update(0.05);
+        cues.push(...sim.drainCues().map((c) => c.cue));
+      }
+      const pet = w(sim, 'code_reviewer').pastime!;
+      // Standing right next to the cat, facing it.
+      const reviewer = w(sim, 'code_reviewer');
+      expect(Math.abs(reviewer.x - sim.cat.x) + Math.abs(reviewer.y - sim.cat.y)).toBeLessThanOrEqual(TILE);
+      expect(sim.cat.emote?.kind).toBe('heart');
+      expect(sim.bubbles.get('cat')?.text).toBe('Purrr...');
+      expect(cues).toContain('purr');
+      for (let t = 0; t < 20 * 30 && reviewer.pastime === pet; t++) sim.update(0.05);
+      if (sim.cat.path.length > 0) {
+        followed = true;
+        const end = sim.cat.path.at(-1)!;
+        expect(Math.abs(end.x - reviewer.home!.x)).toBe(1);
+        expect(end.y).toBe(reviewer.home!.y);
+      }
+    }
+    expect(followed).toBe(true);
+  });
+
+  it('talks a bug through with the rubber duck, which squeaks back', () => {
+    const sim = team();
+    sim.drainCues();
+    expect(sim.beginPastime('role:frontend_developer', 'duck')).toBe(true);
+    const script = w(sim, 'frontend_developer').pastime!.script!;
+    expect(DUCK_TALKS).toContain(script);
+    const said: string[] = [];
+    const cues: string[] = [];
+    for (let t = 0; t < 20 * 40 && said.length < script.length; t++) {
+      sim.update(0.05);
+      cues.push(...sim.drainCues().map((c) => c.cue));
+      const line = script[said.length]!;
+      const owner = line.by === 'duck' ? 'duck' : 'role:frontend_developer';
+      if (sim.bubbles.get(owner)?.text === line.text) said.push(line.text);
+    }
+    expect(said).toEqual(script.map((l) => l.text));
+    expect(cues).toContain('squeak');
+  });
+
+  it('waters a plant, which perks up', () => {
+    const sim = team();
+    expect(sim.beginPastime('role:backend_developer', 'plants')).toBe(true);
+    const cues: string[] = [];
+    for (let t = 0; t < 20 * 30 && !w(sim, 'backend_developer').pastime?.arrived; t++) {
+      sim.update(0.05);
+      cues.push(...sim.drainCues().map((c) => c.cue));
+    }
+    const water = w(sim, 'backend_developer').pastime!;
+    expect((sim.objects.get(water.spot.object!)?.until ?? 0) > sim.now).toBe(true);
+    expect(cues).toContain('glug');
+  });
+
+  it('sends Security on a round of every patrol stop, and QA hunting bugs in the QA lab', () => {
+    const sim = team();
+    expect(sim.beginPastime('role:security_engineer', 'patrol')).toBe(true);
+    const visited: string[] = [];
+    const guard = w(sim, 'security_engineer');
+    for (let t = 0; t < 20 * 90 && guard.pastime; t++) {
+      sim.update(0.05);
+      const p = guard.pastime;
+      if (p?.arrived && guard.path.length === 0) {
+        const key = `${p.spot.x},${p.spot.y}`;
+        if (visited.at(-1) !== key) visited.push(key);
+      }
+    }
+    expect(visited).toEqual(PATROL_ROUTE.map((s) => `${s.x},${s.y}`));
+    expect(guard.pastime).toBeNull();
+
+    expect(sim.beginPastime('role:qa_engineer', 'bughunt')).toBe(true);
+    const qa = w(sim, 'qa_engineer');
+    const a = BUG_HUNT_AREA;
+    for (let t = 0; t < 20 * 50 && qa.pastime; t++) {
+      sim.update(0.05);
+      const s = qa.pastime?.spot;
+      if (s) expect(s.x >= a.x && s.x < a.x + a.w && s.y >= a.y && s.y < a.y + a.h, `${s.x},${s.y}`).toBe(true);
+    }
+  });
+
+  it('runs the hobbies at their own furniture and stops them when work comes in', () => {
+    const sim = team();
+    for (const [roleKey, kind] of Object.entries(HOBBIES)) if (kind !== 'patrol' && kind !== 'bughunt') expect(sim.beginPastime(`role:${roleKey}`, kind), roleKey).toBe(true);
+    // Servers blink and trophies twinkle while someone is at them.
+    untilArrived(sim, 'devops_engineer');
+    expect((sim.objects.get('servers')?.until ?? 0) > sim.now).toBe(true);
+    untilArrived(sim, 'project_manager');
+    expect((sim.objects.get('trophies')?.until ?? 0) > sim.now).toBe(true);
+    expect(w(sim, 'architect').spot).toEqual(STATIONS.whiteboard[0]);
+    expect(w(sim, 'tech_writer').spot?.face).toBe('down');
+    // An agent needs the DevOps Engineer: the hobby stops at once.
+    sim.sync([agent({ stage: 'in_progress', roleKey: 'devops_engineer' })]);
+    expect(w(sim, 'devops_engineer').pastime).toBeNull();
+    // Nobody starts a pastime for a role an agent is playing.
+    expect(sim.beginPastime('role:devops_engineer', 'servers')).toBe(false);
+  });
+
+  it('gossips at the water cooler', () => {
+    let gossip: { script: readonly string[] } | undefined;
+    for (let seed = 1; seed <= 20 && !gossip; seed++) {
+      const sim = team(seed);
+      for (let t = 0; t < 20 * 400 && !gossip; t++) {
+        sim.update(0.05);
+        gossip = sim.chats.find((c) => c.corner === COOLER_CORNER);
+      }
+    }
+    expect(COOLER_CONVERSATIONS).toContain(gossip!.script);
+  });
+
+  it('draws every pastime without errors', () => {
+    const sim = team();
+    const kinds = ['nap', 'plants', 'cat', 'duck', 'console', 'arcade', 'coffee'] as const;
+    const keys = ['senior_developer', 'backend_developer', 'code_reviewer', 'frontend_developer'];
+    kinds.slice(0, 4).forEach((kind, i) => sim.beginPastime(`role:${keys[i]}`, kind));
+    for (const [roleKey, kind] of Object.entries(HOBBIES)) sim.beginPastime(`role:${roleKey}`, kind);
+    settle(sim, 15);
+    const { painter, rects } = fakePainter();
+    expect(() => renderOffice(painter, sim, { names: true, focusId: null, hoverId: null, textSpeed: 'normal' })).not.toThrow();
+    expect(rects.length).toBeGreaterThan(500);
   });
 });
 

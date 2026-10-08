@@ -205,6 +205,9 @@ export class OfficeAudio {
         this.tone(bus, t, { wave: 'triangle', freq: 650 * pitch, to: 900 * pitch, dur: 0.14, vol: 0.1 });
         this.tone(bus, t + 0.14, { wave: 'triangle', freq: 900 * pitch, to: 480 * pitch, dur: 0.22, vol: 0.09 });
         break;
+      case 'purr':
+        for (let i = 0; i < 6; i++) this.tone(bus, t + i * 0.12, { wave: 'triangle', freq: 52 * pitch, to: 46 * pitch, dur: 0.1, vol: 0.06 });
+        break;
       case 'hiss':
         this.hiss(bus, t, 0.55, 0.1, 'highpass', 3000);
         break;

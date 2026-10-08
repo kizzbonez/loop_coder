@@ -8,7 +8,7 @@ export type Dir = 'down' | 'up' | 'left' | 'right';
 export type Outfit = 'shirt' | 'hoodie' | 'coat' | 'suit';
 export type HairStyle = 'short' | 'spiky' | 'long' | 'bun' | 'curly' | 'bald' | 'mohawk';
 export type Accessory = 'none' | 'glasses' | 'goggles' | 'hardhat' | 'beret' | 'headset' | 'cap' | 'scarf' | 'bow' | 'bandana';
-export type Prop = 'none' | 'clipboard' | 'laptop' | 'blueprint' | 'palette' | 'magnifier' | 'bugnet' | 'wrench' | 'shield' | 'quill' | 'mug' | 'book';
+export type Prop = 'none' | 'clipboard' | 'laptop' | 'blueprint' | 'palette' | 'magnifier' | 'bugnet' | 'wrench' | 'shield' | 'quill' | 'mug' | 'book' | 'wateringcan';
 
 export interface Look {
   skin: string;
@@ -390,6 +390,13 @@ function drawProp(L: Local, look: Look, side: boolean): void {
     case 'book':
       L(x, 14, 4, 5, c);
       L(x, 15, 1, 3, PALETTE.paper);
+      break;
+    case 'wateringcan':
+      L(x - 1, 14, 4, 4, PALETTE.green);
+      L(x - 1, 14, 4, 1, shade(PALETTE.green, 0.3));
+      L(x + 3, 13, 2, 1, PALETTE.green);
+      L(x + 4, 12, 1, 1, PALETTE.green);
+      L(x, 12, 2, 2, shade(PALETTE.green, -0.3));
       break;
     case 'none':
       break;

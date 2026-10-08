@@ -418,10 +418,31 @@ the help desk (Needs Human) and a lounge for idle agents.
   test reports and questions. The latest line also types out in the dialogue box under the map,
   and **Office chatter** keeps every line. A character with a question for you waits at the help
   desk. When you answer, you appear behind the desk.
-- Characters with nothing to do have a life of their own: they play on the console or the
-  arcade machine, fetch a coffee, or meet colleagues for a chat (you can read the conversation in
-  their speech bubbles). During kickoff, sprint planning and sprint review the whole team meets
-  in the meeting room.
+- Characters with nothing to do have a life of their own. Anyone may:
+  - play on the console (sometimes two at once) or the arcade machine, or fetch a coffee;
+  - meet colleagues for a chat in a corner, or for gossip at the **water cooler** (you can read
+    the conversation in their speech bubbles);
+  - **nap on the sofa** (Zzz). Poke a napper once for a mumble, twice to wake them up;
+  - **water the plants**, which perk up;
+  - **pet the office cat**, which purrs and sometimes follows its new friend back to the desk;
+  - explain a bug to the **rubber duck**, which squeaks back until the bug is found.
+
+  Roles also have **hobbies** of their own, picked about half the time:
+
+  | Role | Hobby |
+  |---|---|
+  | Project Manager | polishes the trophies at the ship dock |
+  | Software Architect | sketches boxes and arrows on the whiteboard |
+  | UI/UX Designer | paints at the easel |
+  | DevOps Engineer | checks the server rack (its lights speed up) |
+  | Security Engineer | patrols the office |
+  | QA Engineer | hunts bugs with the net in the QA lab ("Got one!") |
+  | Technical Writer | reads in the backlog library |
+
+  ![Idle characters napping, watering a plant, petting the cat, talking to the duck and at their hobbies](images/guide/42-office-idle.png)
+
+  Work always comes first: when an agent needs a role, its character drops whatever it was doing.
+  During kickoff, sprint planning and sprint review the whole team meets in the meeting room.
 - The **Team** panel lists every role, which agent is playing it and on which item.
 - The sprint board on the wall, the trophy shelf at the ship dock and the blinking help sign
   show the real numbers from the board.

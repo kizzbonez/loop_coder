@@ -6,7 +6,27 @@
 import type { StageId } from '../flow/model';
 import { lookFor, roleCharacter, type Dir, type Look } from './characters';
 import { hash, TILE } from './pixels';
-import { CHAT_CORNERS, findPath, HELPDESK_STAFF, HOT_DESKS, OBJECTS, PASTIME_SPOTS, ROLE_STATIONS, STATIONS, stationFor, zoneTiles, type ObjectKind, type PastimeKind, type Spot, type StationId } from './world';
+import {
+  BUG_HUNT_AREA,
+  CHAT_CORNERS,
+  COOLER_CORNER,
+  findPath,
+  HELPDESK_STAFF,
+  HOBBIES,
+  HOT_DESKS,
+  OBJECTS,
+  PASTIME_SPOTS,
+  PATROL_ROUTE,
+  ROLE_STATIONS,
+  STATIONS,
+  stationFor,
+  walkable,
+  zoneTiles,
+  type ObjectKind,
+  type PastimeKind,
+  type Spot,
+  type StationId,
+} from './world';
 import { isCeremony } from '../flow/model';
 
 export type Emote = 'alert' | 'question' | 'anger' | 'sweat' | 'sleep' | 'heart' | 'sparkle' | 'dots';
@@ -29,7 +49,8 @@ export type SfxCue =
   | 'jingle'
   | 'fanfare'
   | 'paper'
-  | 'select';
+  | 'select'
+  | 'purr';
 export type BubbleTone = 'say' | 'question' | 'answer' | 'shout' | 'object';
 
 /** A role in the office cast. */
@@ -39,13 +60,27 @@ export interface CastRole {
   color: string | null;
 }
 
-/** Something an idle character does: play, have a coffee or chat with colleagues. */
+/** One line said during a pastime: by the character itself, or by an object (the rubber duck). */
+export interface PastimeLine {
+  by: 'me' | 'duck';
+  text: string;
+}
+
+/** Something an idle character does: play, have a coffee, chat, nap, or a hobby of its role. */
 export interface Pastime {
   kind: PastimeKind;
   spot: Spot;
   until: number;
   /** The conversation this character is part of (chats only). */
   chat: string | null;
+  /** Set once the character has reached the spot: lines and effects start then. */
+  arrived?: boolean;
+  /** What is said during the pastime, in order, and how far it got. */
+  script?: readonly PastimeLine[];
+  line?: number;
+  nextAt?: number;
+  /** Stops still ahead on a round (patrol, bug hunt). */
+  stops?: Spot[];
 }
 
 interface Conversation {
@@ -71,6 +106,52 @@ export const CONVERSATIONS: ReadonlyArray<readonly string[]> = [
   ["Friday deploy?", 'Absolutely not.', 'Just checking.'],
 ];
 
+/** Gossip at the water cooler. */
+export const COOLER_CONVERSATIONS: ReadonlyArray<readonly string[]> = [
+  ['Did you hear? The cat got promoted.', 'To what?', 'Head of Naps.'],
+  ['Is it me, or is the build faster today?', 'Somebody cached something.', 'Bless them.'],
+  ['Who keeps refilling the cooler?', 'DevOps. Automated, probably.'],
+  ['Big release coming up?', "Shh. Don't say it out loud."],
+  ['Rumour has it the duck fixed a bug.', 'It does all the real work.'],
+];
+
+/** Talking a bug through with the rubber duck. */
+export const DUCK_TALKS: ReadonlyArray<readonly PastimeLine[]> = [
+  [
+    { by: 'me', text: 'So, duck. The function calls itself...' },
+    { by: 'duck', text: 'Squeak.' },
+    { by: 'me', text: '...and nothing ever stops it. Oh!' },
+    { by: 'duck', text: 'Squeak!' },
+    { by: 'me', text: 'Thanks, duck. You are the best.' },
+  ],
+  [
+    { by: 'me', text: 'This test passes on my machine.' },
+    { by: 'duck', text: 'Squeak?' },
+    { by: 'me', text: '...because my machine has the cache. Of course.' },
+  ],
+  [
+    { by: 'me', text: 'Let me explain the bug from the start.' },
+    { by: 'duck', text: '...' },
+    { by: 'me', text: 'Wait. I just found it.' },
+    { by: 'duck', text: 'Squeak!' },
+  ],
+];
+
+/** What characters say once they get to their hobby or chore (one set is picked). */
+const PASTIME_TALK: Partial<Record<PastimeKind, ReadonlyArray<readonly string[]>>> = {
+  plants: [['There you go, little one.'], ['Grow, my leafy friend!'], ['Someone forgot you again, huh?']],
+  cat: [['Who is a good cat?', 'Yes you are!'], ['Hello, boss.'], ['Purr machine activated.']],
+  whiteboard: [['Boxes...', '...arrows...', '...more arrows. Perfect.'], ['What if... a queue?', 'No. Simpler.']],
+  easel: [['A little more blush pink.', 'Happy little gradients.'], ['Glassy, but readable.']],
+  servers: [['Checking the logs...', 'All green. As always.'], ['Rack two looks happy today.']],
+  reading: [['Chapter three: the backlog strikes back.'], ['This style guide has a typo...']],
+  trophies: [['Polishing our wins.', 'This one is my favourite.'], ['Room for one more!']],
+};
+
+/** What characters say at the stops of their rounds (now and then). */
+const PATROL_LINES = ['All clear.', 'Doors locked.', 'Nothing suspicious... except the cat.', 'Badge, please. Oh, it is you.'] as const;
+const BUG_LINES = ['Got one!', 'It got away...', 'Off-by-one bug, caught!', 'Shh... there it is.'] as const;
+
 /** What a character says about its role when poked at its desk with nothing to do. */
 const IDLE_LINES: Readonly<Record<string, readonly string[]>> = {
   project_manager: ['Grooming the backlog in my head.', 'Nothing to plan right now.'],
@@ -94,7 +175,47 @@ const PASTIME_LINES: Readonly<Record<PastimeKind, readonly string[]>> = {
   coffee: ['Coffee keeps the bugs away.', 'Want a cup?', 'Recharging.'],
   chat: ['We were just talking about the retro.', 'Join us!', 'Office gossip: the cat runs this place.'],
   help: ['I asked you something! Check Needs Human.', 'Waiting for your answer.', 'Any news on my question?'],
+  nap: ['Zzz... five more minutes.', '*snore*'],
+  plants: ['Watering the plants.', 'They grow faster when I talk to them.'],
+  cat: ['Shh, the cat is purring.', 'Best colleague in the office.'],
+  duck: ['Explaining a bug to the duck.', 'The duck knows things.'],
+  whiteboard: ['Sketching the architecture.', 'Do not erase this!'],
+  easel: ['Sketching some ideas.', 'Art takes time.'],
+  servers: ['Just checking the servers.', 'Blinking lights are calming.'],
+  patrol: ['On patrol. Move along.', 'Everything is locked tight.'],
+  bughunt: ['Hunting bugs. Literally.', 'Shh, you will scare them.'],
+  reading: ['Reading. Do not spoil the ending.', 'Docs are underrated.'],
+  trophies: ['Polishing the trophies.', 'We earned every one.'],
 };
+
+/** How long each solo pastime lasts: [shortest, longest] seconds. */
+const PASTIME_SECONDS: Partial<Record<PastimeKind, [number, number]>> = {
+  coffee: [12, 20],
+  console: [20, 40],
+  arcade: [20, 40],
+  nap: [25, 40],
+  plants: [9, 13],
+  cat: [10, 14],
+  duck: [14, 20],
+  whiteboard: [20, 30],
+  easel: [20, 30],
+  servers: [12, 18],
+  reading: [25, 35],
+  trophies: [12, 16],
+  patrol: [70, 70],
+  bughunt: [40, 40],
+};
+
+/** Solo pastimes anyone can pick, with how often. */
+const SOLO_PASTIMES: ReadonlyArray<[Exclude<PastimeKind, 'chat' | 'help'>, number]> = [
+  ['console', 26],
+  ['coffee', 16],
+  ['arcade', 12],
+  ['nap', 10],
+  ['plants', 10],
+  ['cat', 12],
+  ['duck', 14],
+];
 
 /** The agent currently playing a role character. */
 export interface Driver {
@@ -475,12 +596,16 @@ export class OfficeSim {
   private updatePastimes(): void {
     let changed = false;
     for (const w of this.walkers.values()) {
-      if (w.pastime && (w.driver || w.pastime.until <= this.now)) {
+      const p = w.pastime;
+      if (p && (w.driver || p.until <= this.now)) {
+        if (p.kind === 'nap' && w.emote?.kind === 'sleep') w.emote = null;
+        if (p.kind === 'cat' && p.arrived && !w.driver) this.catFollows(w);
         w.pastime = null;
         changed = true;
       }
     }
     changed = this.updateConversations() || changed;
+    changed = this.updatePastimeScripts() || changed;
 
     if (this.now >= this.nextPastimeAt) {
       this.nextPastimeAt = this.now + 8 + this.random() * 16;
@@ -493,33 +618,193 @@ export class OfficeSim {
     const idle = this.idleAtDesk();
     if (idle.length === 0) return false;
     const pick = () => idle.splice(Math.floor(this.random() * idle.length), 1)[0]!;
-    const busy = new Set([...this.walkers.values()].flatMap((w) => (w.pastime ? [`${w.pastime.spot.x},${w.pastime.spot.y}`] : [])));
-    const freeSpots = (spots: readonly Spot[]) => spots.filter((sp) => !busy.has(`${sp.x},${sp.y}`));
     const roll = this.random();
 
-    if (roll < 0.35 && idle.length >= 2) {
+    if (roll < 0.3 && idle.length >= 2) {
       const usedCorners = new Set(this.conversations.map((c) => c.corner));
-      const corner = CHAT_CORNERS.findIndex((_, i) => !usedCorners.has(i));
-      if (corner !== -1) {
-        const size = idle.length >= 3 && this.random() < 0.4 ? 3 : 2;
+      const free = CHAT_CORNERS.map((_, i) => i).filter((i) => !usedCorners.has(i));
+      if (free.length > 0) {
+        const corner = free[Math.floor(this.random() * free.length)]!;
+        const seats = CHAT_CORNERS[corner]!;
+        const size = Math.min(seats.length, idle.length >= 3 && this.random() < 0.4 ? 3 : 2);
         const members = Array.from({ length: size }, pick);
         const id = `chat-${++this.conversationSeq}`;
         members.forEach((w, i) => {
-          w.pastime = { kind: 'chat', spot: CHAT_CORNERS[corner]![i]!, until: this.now + 60, chat: id };
+          w.pastime = { kind: 'chat', spot: seats[i]!, until: this.now + 60, chat: id };
         });
-        const script = CONVERSATIONS[Math.floor(this.random() * CONVERSATIONS.length)]!;
+        const pool = corner === COOLER_CORNER ? COOLER_CONVERSATIONS : CONVERSATIONS;
+        const script = pool[Math.floor(this.random() * pool.length)]!;
         this.conversations.push({ id, corner, members: members.map((w) => w.id), script, line: 0, nextAt: this.now + 1 });
         return true;
       }
     }
-    const kind: Exclude<PastimeKind, 'chat'> = roll < 0.6 ? 'console' : roll < 0.85 ? 'coffee' : 'arcade';
-    const spots = freeSpots(PASTIME_SPOTS[kind]);
-    if (spots.length === 0) return false;
-    const seconds = kind === 'coffee' ? 12 + this.random() * 8 : 20 + this.random() * 20;
-    // The console has two controllers: sometimes two colleagues play together.
-    const players = kind === 'console' && spots.length >= 2 && idle.length >= 2 && this.random() < 0.5 ? 2 : 1;
-    for (let i = 0; i < players; i++) pick().pastime = { kind, spot: spots[i]!, until: this.now + seconds, chat: null };
+    const w = pick();
+    const hobby = w.roleKey ? HOBBIES[w.roleKey] : undefined;
+    if (hobby && this.random() < 0.45 && this.beginPastime(w.id, hobby)) return true;
+    let r = this.random() * SOLO_PASTIMES.reduce((sum, [, weight]) => sum + weight, 0);
+    const kind = SOLO_PASTIMES.find(([, weight]) => (r -= weight) < 0)?.[0] ?? 'coffee';
+    if (!this.beginPastime(w.id, kind)) return false;
+    // The console has two controllers: sometimes a colleague joins in.
+    if (kind === 'console' && idle.length > 0 && this.random() < 0.5) {
+      const partner = pick();
+      if (!this.beginPastime(partner.id, 'console')) idle.push(partner);
+      else partner.pastime!.until = w.pastime!.until;
+    }
     return true;
+  }
+
+  /**
+   * Starts a pastime for an idle character, if there is room for it (a free spot, the cat nearby).
+   * Returns whether it started. Used by the office itself and by tests.
+   */
+  beginPastime(walkerId: string, kind: Exclude<PastimeKind, 'chat' | 'help'>): boolean {
+    const w = this.walkers.get(walkerId);
+    if (!w || w.kind !== 'role' || w.driver || w.leaving || this.inMeeting) return false;
+    const [shortest, longest] = PASTIME_SECONDS[kind] ?? [12, 20];
+    const until = this.now + shortest + this.random() * (longest - shortest);
+    const busy = new Set(
+      [...this.walkers.values()].flatMap((o) => (o === w ? [] : [o.pastime?.spot, o.working ? o.spot : null].flatMap((s) => (s ? [`${s.x},${s.y}`] : [])))),
+    );
+    const talk = PASTIME_TALK[kind];
+    const script = (lines: readonly string[] | undefined) => (lines ? lines.map((text) => ({ by: 'me' as const, text })) : undefined);
+    let pastime: Pastime | null = null;
+
+    if (kind === 'cat') {
+      const c = this.cat;
+      if (c.path.length > 0 && c.speed > 26) return false; // it is running off: leave it be
+      c.path = [];
+      const at = tileOf(c.x, c.y);
+      const next = (
+        [
+          [-1, 0, 'right'],
+          [1, 0, 'left'],
+          [0, 1, 'up'],
+          [0, -1, 'down'],
+        ] as const
+      ).find(([dx, dy]) => walkable(at.x + dx, at.y + dy) && !busy.has(`${at.x + dx},${at.y + dy}`));
+      if (!next) return false;
+      pastime = { kind, spot: { x: at.x + next[0], y: at.y + next[1], face: next[2] }, until, chat: null };
+      c.nextMoveAt = until + 1; // the cat stays for its cuddles
+    } else if (kind === 'patrol' || kind === 'bughunt') {
+      const stops =
+        kind === 'patrol'
+          ? PATROL_ROUTE.map((s) => ({ ...s }))
+          : Array.from({ length: 4 }, () => {
+              const a = BUG_HUNT_AREA;
+              return { x: a.x + Math.floor(this.random() * a.w), y: a.y + Math.floor(this.random() * a.h), face: this.random() < 0.5 ? ('left' as const) : ('right' as const) };
+            }).filter((s) => walkable(s.x, s.y));
+      if (stops.length === 0) return false;
+      pastime = { kind, spot: stops.shift()!, until, chat: null, stops };
+    } else {
+      const spots = PASTIME_SPOTS[kind].filter((s) => !busy.has(`${s.x},${s.y}`));
+      if (spots.length === 0) return false;
+      const spot = kind === 'plants' ? spots[Math.floor(this.random() * spots.length)]! : spots[0]!;
+      const lines = kind === 'duck' ? DUCK_TALKS[Math.floor(this.random() * DUCK_TALKS.length)] : script(talk?.[Math.floor(this.random() * talk.length)]);
+      pastime = { kind, spot, until, chat: null, script: lines };
+    }
+    w.pastime = pastime;
+    this.plan();
+    return true;
+  }
+
+  /** Effects when someone gets to their pastime: a nap begins, a plant drinks, the cat purrs... */
+  private arrive(w: Walker, p: Pastime): void {
+    p.arrived = true;
+    p.line = 0;
+    p.nextAt = this.now + 0.6;
+    const active = (id: string, until: number) => this.objects.set(id, { ...(this.objects.get(id) ?? { count: 0, last: -99 }), until });
+    switch (p.kind) {
+      case 'nap':
+        w.emote = { kind: 'sleep', until: p.until };
+        break;
+      case 'plants':
+        if (p.spot.object) active(p.spot.object, this.now + 4);
+        this.cue('glug', 1.2);
+        break;
+      case 'cat':
+        this.cat.emote = { kind: 'heart', until: p.until };
+        this.cue('purr');
+        this.bubbles.set(CAT_ID, { ownerId: CAT_ID, text: 'Purrr...', tone: 'object', started: this.now, until: this.now + 2.5 });
+        p.nextAt = this.now + 1.8;
+        break;
+      case 'servers':
+        active('servers', p.until);
+        break;
+      case 'trophies':
+        active('trophies', p.until);
+        break;
+      case 'reading':
+        this.cue('paper');
+        break;
+      case 'patrol':
+        if (this.random() < 0.4) this.speak(w, pickFrom(PATROL_LINES, Math.floor(this.random() * PATROL_LINES.length)));
+        p.nextAt = this.now + 1.5;
+        break;
+      case 'bughunt': {
+        const r = this.random();
+        if (r < 0.5) {
+          const text = pickFrom(BUG_LINES, Math.floor(r * 8));
+          this.speak(w, text);
+          if (text !== 'It got away...') {
+            w.emote = { kind: 'sparkle', until: this.now + 1.2 };
+            this.cue('chime', 1.3);
+          }
+        }
+        p.nextAt = this.now + 2;
+        break;
+      }
+    }
+  }
+
+  private speak(w: Walker, text: string): void {
+    this.bubbles.set(w.id, { ownerId: w.id, text, tone: 'say', started: this.now, until: this.now + bubbleSeconds(text, this.textSpeed) * 0.85 });
+  }
+
+  /** Lines said during pastimes, and the next stop of a round. Returns whether anyone moves on. */
+  private updatePastimeScripts(): boolean {
+    let changed = false;
+    for (const w of this.walkers.values()) {
+      const p = w.pastime;
+      if (!p || p.kind === 'chat' || p.kind === 'help' || w.path.length > 0) continue;
+      if (!p.arrived) {
+        this.arrive(w, p);
+        continue;
+      }
+      if (this.now < (p.nextAt ?? 0)) continue;
+      const line = p.script?.[p.line ?? 0];
+      if (line) {
+        if (line.by === 'duck') {
+          this.objects.set('duck', { ...(this.objects.get('duck') ?? { count: 0, last: -99 }), until: this.now + 0.6 });
+          this.bubbles.set('duck', { ownerId: 'duck', text: line.text, tone: 'object', started: this.now, until: this.now + bubbleSeconds(line.text, this.textSpeed) * 0.8 });
+          if (line.text !== '...') this.cue('squeak', 1.1);
+        } else {
+          this.speak(w, line.text);
+        }
+        p.line = (p.line ?? 0) + 1;
+        p.nextAt = this.now + 1.2 + line.text.length * 0.05;
+      } else if (p.stops) {
+        const next = p.stops.shift();
+        if (next) {
+          p.spot = next;
+          p.arrived = false;
+        } else {
+          p.until = this.now; // the round is done
+        }
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /** After a cuddle the cat sometimes follows its new friend back to the desk. */
+  private catFollows(w: Walker): void {
+    if (!w.home || this.random() >= 0.4) return;
+    const target = [w.home.x + 1, w.home.x - 1].map((x) => ({ x, y: w.home!.y })).find((tile) => walkable(tile.x, tile.y));
+    if (!target) return;
+    this.route(this.cat, target);
+    this.cat.speed = 40;
+    this.cat.nextMoveAt = this.now + 12;
+    this.cat.emote = { kind: 'heart', until: this.now + 2 };
   }
 
   /** Characters in a conversation take turns once they have all arrived. */
@@ -552,7 +837,7 @@ export class OfficeSim {
   }
 
   /** The conversations going on right now (for tests and the renderer). */
-  get chats(): ReadonlyArray<{ id: string; members: string[]; line: number; script: readonly string[] }> {
+  get chats(): ReadonlyArray<{ id: string; corner: number; members: string[]; line: number; script: readonly string[] }> {
     return this.conversations;
   }
 
@@ -575,6 +860,18 @@ export class OfficeSim {
     let tone: BubbleTone = 'say';
     if (w.kind === 'human') {
       text = pickFrom(['Just answering the agent!', 'Back to my real job soon.', 'Hi there!'], w.pokes);
+    } else if (w.pastime?.kind === 'nap' && !w.driver && w.pastime.arrived) {
+      if (w.pokes === 1) {
+        text = pickFrom(PASTIME_LINES.nap, 0);
+        this.cue('select', 0.7);
+      } else {
+        text = "Huh?! I'm up, I'm up!";
+        w.pastime = null;
+        w.emote = { kind: 'alert', until: this.now + 1.2 };
+        w.hopUntil = this.now + 0.4;
+        this.cue('select', 1.3);
+        this.plan();
+      }
     } else if (w.pokes === 1) {
       text = w.driver
         ? `I'm the ${w.name}. ${w.driver.agentName} has me on ${w.taskKey ?? 'a ceremony'}.`

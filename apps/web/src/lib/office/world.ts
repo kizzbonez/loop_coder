@@ -115,6 +115,10 @@ export interface Spot {
   x: number;
   y: number;
   face: Dir;
+  /** Furniture this spot is for (the plant someone waters). */
+  object?: string;
+  /** Where the character sits once there (a tile of the sofa), when it does not stand. */
+  seat?: { x: number; y: number };
 }
 
 const row = (y: number, xs: number[], face: Dir): Spot[] => xs.map((x) => ({ x, y, face }));
@@ -151,19 +155,76 @@ export const STATIONS: Readonly<Record<StationId, readonly Spot[]>> = {
   door: row(16, [15, 16], 'up'),
 };
 
-/** What characters do while their role has no work ("help": waiting at the help desk for your answer). */
-export type PastimeKind = 'coffee' | 'console' | 'arcade' | 'chat' | 'help';
+/**
+ * What characters do while their role has no work ("help": waiting at the help desk for your
+ * answer). Anyone can play, chat, nap, water the plants, pet the cat or talk to the rubber duck;
+ * some roles also have a hobby of their own (see HOBBIES).
+ */
+export type PastimeKind =
+  | 'coffee'
+  | 'console'
+  | 'arcade'
+  | 'chat'
+  | 'help'
+  | 'nap'
+  | 'plants'
+  | 'cat'
+  | 'duck'
+  | 'whiteboard'
+  | 'easel'
+  | 'servers'
+  | 'patrol'
+  | 'bughunt'
+  | 'reading'
+  | 'trophies';
+
+/** Pastimes that happen on a round of stops, near the cat, or in a chat corner instead of one spot. */
+export type RoamingPastime = 'chat' | 'cat' | 'patrol' | 'bughunt';
 
 /** Where each pastime happens. */
-export const PASTIME_SPOTS: Readonly<Record<Exclude<PastimeKind, 'chat'>, readonly Spot[]>> = {
-  coffee: [
-    { x: 7, y: 15, face: 'up' },
-    { x: 8, y: 15, face: 'up' },
-  ],
+export const PASTIME_SPOTS: Readonly<Record<Exclude<PastimeKind, RoamingPastime>, readonly Spot[]>> = {
+  coffee: [{ x: 7, y: 15, face: 'up' }],
   console: row(15, [2, 3], 'up'),
   arcade: [{ x: 5, y: 15, face: 'up' }],
   help: row(5, [26, 28, 27], 'up'),
+  // In front of the sofa's free end; the napper sits on it, facing the room.
+  nap: [{ x: 4, y: 15, face: 'down', seat: { x: 4, y: 16 } }],
+  plants: [
+    { x: 1, y: 13, face: 'down', object: 'lounge-plant' },
+    { x: 21, y: 14, face: 'left', object: 'hall-plant' },
+    { x: 29, y: 7, face: 'right', object: 'help-plant' },
+  ],
+  duck: [{ x: 14, y: 15, face: 'up' }],
+  // Role hobbies: the Architect's whiteboard, the Designer's easel, DevOps' servers, the
+  // Tech Writer's library shelves (reading, facing the room) and the PM's trophy shelf.
+  whiteboard: STATIONS.whiteboard,
+  easel: STATIONS.easel,
+  servers: STATIONS.server,
+  reading: row(3, [4, 3, 6], 'down'),
+  trophies: row(15, [24, 25], 'up'),
 };
+
+/** Each role's own hobby, which it picks about half the time when it is free. */
+export const HOBBIES: Readonly<Record<string, Exclude<PastimeKind, 'chat' | 'help'>>> = {
+  project_manager: 'trophies',
+  architect: 'whiteboard',
+  ui_designer: 'easel',
+  devops_engineer: 'servers',
+  security_engineer: 'patrol',
+  qa_engineer: 'bughunt',
+  tech_writer: 'reading',
+};
+
+/** Security's round: along the hall, past the QA lab and back by the ops room. */
+export const PATROL_ROUTE: readonly Spot[] = [
+  { x: 16, y: 8, face: 'right' },
+  { x: 29, y: 8, face: 'down' },
+  { x: 30, y: 13, face: 'left' },
+  { x: 16, y: 13, face: 'up' },
+];
+
+/** Where QA chases bugs with the net: the QA lab and the hall in front of it. */
+export const BUG_HUNT_AREA = { x: 23, y: 11, w: 8, h: 3 } as const;
 
 /** Corners where two or three idle characters meet for a chat, facing each other. */
 export const CHAT_CORNERS: ReadonlyArray<readonly Spot[]> = [
@@ -182,7 +243,15 @@ export const CHAT_CORNERS: ReadonlyArray<readonly Spot[]> = [
     { x: 12, y: 15, face: 'left' },
     { x: 11, y: 16, face: 'up' },
   ],
+  // The water cooler: two colleagues and the latest gossip.
+  [
+    { x: 8, y: 15, face: 'right' },
+    { x: 9, y: 16, face: 'up' },
+  ],
 ];
+
+/** The chat corner at the water cooler, which has its own (gossipy) conversations. */
+export const COOLER_CORNER = CHAT_CORNERS.length - 1;
 
 /** Free desks for roles without a workplace of their own (roles added later). */
 export const HOT_DESKS: readonly Spot[] = [
