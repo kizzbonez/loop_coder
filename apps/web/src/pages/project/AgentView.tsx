@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { MCP_SERVER_NAME } from '@loop/shared';
+import { ProjectAgents } from '../../components/agents/ProjectAgents';
 import { RolePicker } from '../../components/agents/RolePicker';
 import { Badge, Chip } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -165,6 +166,8 @@ export function AgentView() {
           </p>
         </div>
       </section>
+
+      {canEdit && <ProjectAgents project={project} />}
 
       <Section
         title="Connect your AI agent"

@@ -50,6 +50,8 @@ export interface ApiTokenDTO {
   userEmail?: string;
   /** The roles the agent using this token plays; null means every role. */
   roleKeys: string[] | null;
+  /** The MCP client that last connected with it (e.g. "claude-code 2.1.0"), or null if none yet. */
+  clientName: string | null;
   createdAt: string;
   expiresAt: string;
   lastUsedAt: string | null;

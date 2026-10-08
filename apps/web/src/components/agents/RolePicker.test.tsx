@@ -38,8 +38,12 @@ describe('RolePicker', () => {
   it('starts with every role and lets you narrow it down to some', async () => {
     show(null);
     expect((screen.getByLabelText('Every role (one agent does everything)') as HTMLInputElement).checked).toBe(true);
-    expect(screen.queryByRole('group', { name: 'Roles' })).toBeNull();
+    // The roles are always listed: with "every role" they are all ticked and cannot be changed.
+    const reviewer = screen.getByLabelText('Code Reviewer') as HTMLInputElement;
+    expect(screen.getByRole('group', { name: 'Roles' })).toBeTruthy();
+    expect(reviewer.checked && reviewer.disabled).toBe(true);
     await userEvent.click(screen.getByLabelText('Only these roles'));
+    expect(reviewer.checked || reviewer.disabled).toBe(false);
     expect(last).toEqual([]);
     expect(screen.getByText('Choose at least one role.')).toBeTruthy();
     await userEvent.click(screen.getByLabelText('QA Engineer'));

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import type { UserDTO } from '@loop/shared';
 import { RolePicker, roleSummary } from '../../components/agents/RolePicker';
+import { TokenRolesDialog } from '../../components/agents/TokenRolesDialog';
 import { Badge } from '../../components/ui/Badge';
 import { Button, IconButton } from '../../components/ui/Button';
 import { useConfirm } from '../../components/ui/Confirm';
@@ -284,35 +285,7 @@ function Tokens() {
         )}
       </Modal>
 
-      <Modal
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        title={editing ? `Roles for “${editing.name}”` : ''}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              icon={Save}
-              disabled={editing?.roleKeys?.length === 0}
-              loading={m.setRoles.isPending}
-              onClick={() =>
-                editing &&
-                m.setRoles.mutate(
-                  { id: editing.id, roleKeys: editing.roleKeys },
-                  { onSuccess: () => (toast.success('Roles saved. The agent gets matching work from its next step.'), setEditing(null)), onError: (e) => toast.error(errorMessage(e)) },
-                )
-              }
-            >
-              Save
-            </Button>
-          </>
-        }
-      >
-        {editing && <RolePicker value={editing.roleKeys} onChange={(roleKeys) => setEditing({ ...editing, roleKeys })} />}
-      </Modal>
+      <TokenRolesDialog token={editing} onClose={() => setEditing(null)} />
     </Section>
   );
 }

@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The Agent tab lists your agents on the project** (every access token that can work on it),
+  with the tool each one connected with, when it was last used and the roles it plays, and a
+  **Roles** button to change them in place. Before, roles could only be changed on the Account
+  page.
+- The role picker always shows the roles: ticked and greyed out for *Every role*, to tick with
+  *Only these roles*.
+- Access tokens report the MCP client that last connected with them.
+
 ## [0.7.0] - 2026-10-08
 
 ### Added

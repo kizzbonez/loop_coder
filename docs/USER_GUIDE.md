@@ -169,8 +169,8 @@ or **Other MCP client**) and your operating system. The page then shows exactly 
 
 ### Step 1: Create a project token
 
-Choose the **roles this agent plays** (every role, or only some), then click **Create project
-token**. The token lets the agent act on **this project only**, with your permissions. It is
+Choose the **roles this agent plays**: every role, or **Only these roles** and tick the ones
+it should do (the list shows every role either way). Then click **Create project token**. The token lets the agent act on **this project only**, with your permissions. It is
 shown **once**, so copy it now. All snippets on the page fill in the token automatically.
 
 ### Step 2: Create the project folder
@@ -225,8 +225,9 @@ building features while another reviews and tests. Set it up like this:
    *Code Reviewer* and *QA Engineer* for a checker. `get_next_work` then hands that agent only
    work for its roles; with nothing to do it waits connected. Only an agent that plays the
    **Project Manager** runs the kickoff, backlog refinement, sprint planning and sprint reviews,
-   so make sure one of them does. Change the roles at any time under **Account → Access tokens
-   → Roles**.
+   so make sure one of them does. The project's **Agent** tab lists **your agents on this
+   project** with the roles each plays; click **Roles** next to one to change them (also under
+   **Account → Access tokens**). The change applies from the agent's next step.
 3. **A git worktree per agent.** New projects give every agent its own working copy, so agents
    never edit the same files:
    - each agent works in `workspaces/<workspace>/<project>.worktrees/<agent>`, a git worktree of

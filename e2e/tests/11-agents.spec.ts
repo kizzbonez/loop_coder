@@ -45,6 +45,21 @@ test('each agent gets its own roles, chosen on its token', async ({ page, reques
   await mcp(request, secret, 'complete_kickoff', { project: 'TEAM', summary: 'ok' });
 });
 
+test('the Agent tab lists your agents with their roles, and changes them in place', async ({ page }) => {
+  await page.goto(`/p/${projectId}/agent`);
+  const agents = page.getByRole('region', { name: 'Your agents on this project' });
+  await expect(agents.getByText('Reviewer bot')).toBeVisible();
+  await expect(agents.getByLabel('Roles of Reviewer bot').getByText('Every role')).toBeVisible();
+  await agents.getByRole('button', { name: 'Roles for Reviewer bot' }).click();
+  const dialog = page.getByRole('dialog');
+  // The roles are listed even before narrowing them down.
+  await expect(dialog.getByLabel('QA Engineer')).toBeDisabled();
+  await dialog.getByLabel('Only these roles').check();
+  await dialog.getByLabel('QA Engineer').check();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(agents.getByLabel('Roles of Reviewer bot').getByText('QA Engineer')).toBeVisible();
+});
+
 test('new projects give each agent a git worktree and each item a branch', async ({ page }) => {
   await page.goto(`/p/${projectId}/settings`);
   await expect(page.getByLabel('Working copies')).toHaveValue('worktrees');
