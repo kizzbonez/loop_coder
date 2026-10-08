@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-08
+
 ### Fixed
 
 - **Removing an agent frees its work at once.** Deleting an API agent, revoking an access token
