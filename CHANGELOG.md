@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-08
+
 ### Fixed
 
 - **The Security Engineer's patrol is easy to spot.** It was a quick 15-second walk that looked like

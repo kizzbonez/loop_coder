@@ -19,12 +19,12 @@ x-hardening: &hardening
 services:
   api:
     <<: *hardening
-    image: loop-coder-api:${APP_VERSION:-0.10.0}
+    image: loop-coder-api:${APP_VERSION:-0.10.1}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-0.10.0}
+        APP_VERSION: ${APP_VERSION:-0.10.1}
         GIT_SHA: ${GIT_SHA:-unknown}
         BUILD_TIME: ${BUILD_TIME:-}
     environment:
@@ -67,12 +67,12 @@ services:
   # The only way out to the internet: HTTPS to the hosts of enabled AI providers, nothing else.
   egress:
     <<: *hardening
-    image: loop-coder-egress:${APP_VERSION:-0.10.0}
+    image: loop-coder-egress:${APP_VERSION:-0.10.1}
     build:
       context: .
       dockerfile: apps/egress/Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-0.10.0}
+        APP_VERSION: ${APP_VERSION:-0.10.1}
     volumes:
       - egress_config:/egress:ro
     read_only: true
@@ -89,12 +89,12 @@ services:
   # commands run as an unprivileged user that cannot read the runner's tokens.
   runner:
     <<: *hardening
-    image: loop-coder-runner:${APP_VERSION:-0.10.0}
+    image: loop-coder-runner:${APP_VERSION:-0.10.1}
     build:
       context: .
       dockerfile: apps/runner/Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-0.10.0}
+        APP_VERSION: ${APP_VERSION:-0.10.1}
     environment:
       LOOP_API_URL: http://api:3000
       LOOP_RUNNER_SECRET: ${LOOP_RUNNER_SECRET:-}
@@ -124,12 +124,12 @@ services:
 
   web:
     <<: *hardening
-    image: loop-coder-web:${APP_VERSION:-0.10.0}
+    image: loop-coder-web:${APP_VERSION:-0.10.1}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-0.10.0}
+        APP_VERSION: ${APP_VERSION:-0.10.1}
         GIT_SHA: ${GIT_SHA:-unknown}
     environment:
       # Sites allowed to embed the UI in an iframe (see .env.example). Default: none.
