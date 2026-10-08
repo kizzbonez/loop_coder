@@ -67,8 +67,10 @@ test('the board updates live while the agent works through MCP', async ({ page, 
 test('humans can pause, resume and stop the agent from the board', async ({ page, request }) => {
   await page.goto(`/p/${projectId}/board`);
   await page.getByRole('button', { name: 'Pause agent' }).click();
-  await expect(page.getByText('Agent paused', { exact: true })).toBeVisible();
+  // The agent is still busy with its step, so the board says it is pausing until it asks for more.
+  await expect(page.getByText('Pausing', { exact: true })).toBeVisible();
   expect(await mcp(request, token, 'get_next_work')).toContain('STATUS: PAUSED');
+  await expect(page.getByText('Agent paused', { exact: true })).toBeVisible();
 
   // A paused agent waits connected; resuming hands it work at once.
   const waiting = mcp(request, token, 'wait_for_work', { seconds: 20 });
@@ -79,9 +81,10 @@ test('humans can pause, resume and stop the agent from the board', async ({ page
 
   // Stopping ends the agent's session; it can be resumed afterwards.
   await page.getByRole('button', { name: 'Stop agent' }).click();
-  await expect(page.getByText('Agent stopped', { exact: true })).toBeVisible();
+  await expect(page.getByText('Stopping', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Stop agent' })).toHaveCount(0);
   expect(await mcp(request, token, 'get_next_work')).toContain('STATUS: STOPPED');
+  await expect(page.getByText('Agent stopped', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Resume agent' }).click();
   await expect(page.getByRole('button', { name: 'Pause agent' })).toBeVisible();
   expect(await mcp(request, token, 'get_next_work')).toContain('Code Reviewer');

@@ -56,7 +56,7 @@ one project. `item` is a work item key (`SHOP-12`) or id.
 | `mark_refined` | `item`, `summary` | Finishes refinement (requires story points and acceptance criteria, except for epics). |
 | `request_human_input` | `item`, `question` | Moves the item to **Needs Human** with the question. |
 | `release_work_item` | `item`, `note?` | Gives up a claim without moving the item. |
-| `log_progress` | `project`, `message`, `item?` | Live progress note on the board; also extends the claim. |
+| `log_progress` | `project`, `message`, `item?` | Live progress note on the board; also extends the claim. While the project is paused or stopped, the reply tells the agent to bring its step to a safe end. |
 | `complete_kickoff` | `project`, `summary` | Ends the kickoff (requires at least one work item). |
 | `start_sprint` | `project`, `goal`, `items[]`, `name?` | Sprint planning outcome: commits refined backlog items and starts the sprint. |
 | `complete_sprint` | `project`, `review_notes`, `retro_notes` | Sprint review and retrospective outcome. Unstarted items return to the backlog; started items carry over. |

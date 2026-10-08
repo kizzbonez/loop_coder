@@ -262,6 +262,14 @@ describe('controls and safety', () => {
     expect(await mcp.ok('get_next_work', P)).toContain('Project kickoff');
   });
 
+  it('tells a working agent about a pause when it logs progress', async () => {
+    expect(await mcp.ok('log_progress', { ...P, message: 'Writing the plan' })).toBe('Logged.');
+    await setAgent('paused');
+    expect(await mcp.ok('log_progress', { ...P, message: 'Still writing' })).toMatch(/^Logged\. A human paused this project: bring the current step to a safe end/);
+    await setAgent('stopped');
+    expect(await mcp.ok('log_progress', { ...P, message: 'Almost done' })).toMatch(/A human stopped this project[\s\S]*end your session/);
+  });
+
   it('keeps a paused agent waiting, and hands it work the moment a human resumes', async () => {
     await setAgent('paused');
     const started = Date.now();

@@ -23,9 +23,10 @@ export function LiveIndicator({ status }: { status: StreamStatus }) {
 }
 
 /** What changing the agent state means for the agent, said once it is saved. */
-function confirmation(from: AgentState, to: AgentState): string {
-  if (to === 'paused') return 'Agent paused. It finishes its current step, then waits until you resume.';
-  if (to === 'stopped') return 'Agent stopped. It finishes its current step, then ends its session.';
+function confirmation(from: AgentState, to: AgentState, busyWith: string | null): string {
+  const first = busyWith ? `It finishes ${busyWith} first` : 'It finishes its current step';
+  if (to === 'paused') return `Agent paused. ${first}, then waits until you resume.`;
+  if (to === 'stopped') return `Agent stopped. ${first}, then ends its session.`;
   return from === 'stopped'
     ? 'Agent can work again. Start it from your coding agent (see the Agent page).'
     : 'Agent resumed. A waiting agent carries on right away.';
@@ -49,12 +50,15 @@ export function AgentStatus({
   const stopped = state === 'stopped';
   const { agent } = project;
   const role = agent.currentRoleKey ? rolesByKey.get(agent.currentRoleKey) : undefined;
+  // A pause or stop takes effect between steps: until then the agent is still finishing one.
+  const busy = agent.online && Boolean(agent.currentRoleKey || agent.currentCeremony);
+  const finishing = state !== 'active' && busy;
 
   const change = (to: AgentState) =>
     update.mutate(
       { agentState: to },
       {
-        onSuccess: () => toast.success(confirmation(state, to)),
+        onSuccess: () => toast.success(confirmation(state, to, busy ? agent.currentTaskKey : null)),
         onError: (e) => toast.error(errorMessage(e)),
       },
     );
@@ -69,10 +73,26 @@ export function AgentStatus({
         )}
       >
         <span className="relative flex size-2.5 shrink-0">
-          {agent.online && state === 'active' && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />}
+          {agent.online && (state === 'active' || finishing) && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />}
           <span className={clsx('relative inline-flex size-2.5 rounded-full', paused ? 'bg-warning' : stopped ? 'bg-danger' : agent.online ? 'bg-success' : 'bg-subtle')} />
         </span>
-        {paused ? (
+        {finishing ? (
+          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium text-warning">
+            {paused ? <CirclePause className="size-4 shrink-0" /> : <CircleStop className="size-4 shrink-0 text-danger" />}
+            <span>{paused ? 'Pausing' : 'Stopping'}</span>
+            <span className="flex min-w-0 items-center gap-1 font-normal text-muted">
+              · finishing
+              {agent.currentTaskKey && agent.currentTaskId ? (
+                <button type="button" onClick={() => onOpenTask(agent.currentTaskId!)} className="font-mono text-xs text-accent hover:underline">
+                  {agent.currentTaskKey}
+                </button>
+              ) : (
+                ' its current step'
+              )}
+              {role ? ` as ${role.name}` : ''} first
+            </span>
+          </span>
+        ) : paused ? (
           <span className="flex items-center gap-1.5 text-[13px] font-medium text-warning">
             <CirclePause className="size-4" /> <span>Agent paused</span>
             <span className="font-normal text-muted">{agent.online ? '· waiting for you to resume' : '· resumes when you say so'}</span>

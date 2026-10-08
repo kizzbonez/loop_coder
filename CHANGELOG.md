@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The board says when a pause or stop is still on its way.** A pause or stop takes effect
+  between steps; until the agent finishes its current one, the header says *Pausing* or
+  *Stopping* with the item and role it is finishing (for example *Pausing · finishing NT-26 as
+  Frontend Developer first*), and the confirmation names the item. It switches to *Agent
+  paused* once the agent is waiting.
+- `log_progress` tells an agent that the project was paused or stopped, so it can bring its
+  step to a safe end sooner.
+
 ## [0.6.0] - 2026-10-08
 
 ### Added

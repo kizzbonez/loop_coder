@@ -276,9 +276,9 @@ Three buttons control the agent. Editors and owners can use them.
 
 | Button | What the agent does |
 |---|---|
-| **Pause agent** | Finishes its current step, then waits. It stays connected (checking in about once a minute) and carries on by itself the moment you click **Resume agent**. |
+| **Pause agent** | Finishes its current step, then waits. Until then the header says, for example, *Pausing · finishing NT-26 as Frontend Developer first*. It stays connected (checking in about once a minute) and carries on by itself the moment you click **Resume agent**. |
 | **Resume agent** | Carries on at once if it was waiting. After a stop, the agent may work again, but you start it again from your coding agent (the Agent tab shows how). |
-| **Stop agent** | Finishes its current step and ends its session. Use it when you are done for the day or want to change something before it continues. |
+| **Stop agent** | Finishes its current step (the header says *Stopping* until then) and ends its session. Use it when you are done for the day or want to change something before it continues. |
 
 The agent also waits, rather than ending, when nothing can move until you answer a question
 in **Needs Human**: answer it and the agent picks the work up again.

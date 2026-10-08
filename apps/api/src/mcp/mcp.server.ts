@@ -527,6 +527,9 @@ export function buildMcpServer(actor: Actor): McpServer {
         const p = resolveProject(actor, project, 'editor');
         const r = logProgress(actor, p.id, message, item);
         touch(p.id, { activity: message, ...(r.taskId ? { taskId: r.taskId } : {}) });
+        // Agents hear about a pause or stop between steps; a progress note is a chance to hear it sooner.
+        if (p.agentState === 'paused') return 'Logged. A human paused this project: bring the current step to a safe end and hand it on (or release the item with a note), then call get_next_work.';
+        if (p.agentState === 'stopped') return 'Logged. A human stopped this project: bring the current step to a safe end and hand it on (or release the item with a note), then call get_next_work and end your session.';
         return 'Logged.';
       }),
   );
