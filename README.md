@@ -11,9 +11,14 @@ asks, and can pause, resume or stop it at any time.
 - **Workspaces → projects → one board per project**, with members and roles per workspace.
 - **Real SDLC and Scrum:** epics, stories, tasks, bugs, spikes; story points; dependencies;
   Definition of Ready and Done; sprint planning, review and retrospective; WIP limits; burndown.
-- **One agent, eleven roles:** Project Manager, Software Architect, UI/UX Designer, Senior
-  Developer, Backend Developer, Frontend Developer, Code Reviewer, QA Engineer, DevOps,
-  Security and Technical Writer. Their instructions are editable, and you can add your own roles.
+- **One agent, eleven roles, or a team of agents:** Project Manager, Software Architect,
+  UI/UX Designer, Senior Developer, Backend Developer, Frontend Developer, Code Reviewer, QA
+  Engineer, DevOps, Security and Technical Writer. Their instructions are editable, and you can
+  add your own roles. Run several agents side by side, each limited to some roles (for example
+  one that builds and one that reviews and tests).
+- **A git worktree per agent:** every agent works in its own working copy and every item on its
+  own branch (`item/<KEY>`), merged into the base branch when the item is done, so parallel
+  agents never overwrite each other.
 - **Realtime:** cards move, glow while the agent works on them (labelled with its name, e.g.
   "Claude Code" or "Cursor"), and stream activity as it happens.
 - **Flow view:** the SDLC as a live, animated graph. Agents glide between stages, work items
@@ -139,7 +144,8 @@ Settings). Roles and their instructions are edited in Administration → Agent r
   rework limit, claim timeout, agent kill switch), all access tokens, agent sessions, the
   audit log, and download online database backups.
 - **Access tokens** (Account → Access tokens) can be scoped to one project or one
-  workspace and always expire. Revoke them at any time.
+  workspace and always expire. Revoke them at any time. Each token is one agent and sets the
+  roles it plays.
 
 ## Configuration
 

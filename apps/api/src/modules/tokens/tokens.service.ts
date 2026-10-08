@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { ApiTokenDTO, CreatedTokenDTO, CreateTokenInput } from '@loop/shared';
+import { agentRoles } from '../../db/schema';
 import { db } from '../../db/client';
 import { apiTokens, projects, users, workspaces, type ApiTokenRow, type UserRow } from '../../db/schema';
 import type { Actor } from '../../lib/actor';
@@ -31,6 +32,7 @@ function toDTO({ token, workspaceName, projectName, userEmail }: TokenWithJoins,
     projectName,
     userId: token.userId,
     ...(includeUser ? { userEmail: userEmail ?? undefined } : {}),
+    roleKeys: token.roleKeys ?? null,
     createdAt: token.createdAt.toISOString(),
     expiresAt: token.expiresAt.toISOString(),
     lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
@@ -47,6 +49,15 @@ function selectTokens() {
     .leftJoin(users, eq(users.id, apiTokens.userId));
 }
 
+/** Role keys must name existing roles (kept as given; a role disabled later simply hands out no work). */
+function checkRoleKeys(roleKeys: string[] | null | undefined): string[] | null {
+  if (!roleKeys) return null;
+  const known = new Set(db.select({ key: agentRoles.key }).from(agentRoles).all().map((r) => r.key));
+  const unknown = roleKeys.filter((k) => !known.has(k));
+  if (unknown.length) throw badRequest(`Unknown role: ${unknown.join(', ')}`, [{ path: 'roleKeys', message: `Unknown role: ${unknown.join(', ')}` }]);
+  return roleKeys;
+}
+
 export function createToken(actor: Actor, input: CreateTokenInput): CreatedTokenDTO {
   const maxDays = getSettings().security.tokenMaxDays;
   if (input.expiresInDays > maxDays) {
@@ -56,6 +67,7 @@ export function createToken(actor: Actor, input: CreateTokenInput): CreatedToken
   }
   if (input.workspaceId) requireWorkspaceAccess(actor, input.workspaceId, 'editor');
   if (input.projectId) requireProjectAccess(actor, input.projectId, 'editor');
+  const roleKeys = checkRoleKeys(input.roleKeys);
 
   const secret = generateToken(TOKEN_PREFIX);
   const row = db
@@ -65,13 +77,14 @@ export function createToken(actor: Actor, input: CreateTokenInput): CreatedToken
       workspaceId: input.workspaceId ?? null,
       projectId: input.projectId ?? null,
       name: input.name,
+      roleKeys,
       tokenHash: sha256(secret),
       prefix: secret.slice(0, TOKEN_PREFIX.length + 5),
       expiresAt: addDays(now(), input.expiresInDays),
     })
     .returning()
     .get();
-  audit({ action: 'token.created', actor, targetType: 'api_token', targetId: row.id, metadata: { name: row.name } });
+  audit({ action: 'token.created', actor, targetType: 'api_token', targetId: row.id, metadata: { name: row.name, roleKeys } });
   const joined = selectTokens().where(eq(apiTokens.id, row.id)).get()!;
   return { token: toDTO(joined), secret };
 }
@@ -89,6 +102,19 @@ export function listAllTokens(): ApiTokenDTO[] {
     .orderBy(desc(apiTokens.createdAt))
     .all()
     .map((r) => toDTO(r, true));
+}
+
+/** Change which roles the agent using one of your tokens plays (null: every role). */
+export function updateTokenRoles(actor: Actor, tokenId: string, roleKeys: string[] | null): ApiTokenDTO {
+  const keys = checkRoleKeys(roleKeys);
+  const changed = db
+    .update(apiTokens)
+    .set({ roleKeys: keys })
+    .where(and(eq(apiTokens.id, tokenId), eq(apiTokens.userId, actor.userId), isNull(apiTokens.revokedAt)))
+    .run().changes;
+  if (changed === 0) throw notFound('Token');
+  audit({ action: 'token.roles_changed', actor, targetType: 'api_token', targetId: tokenId, metadata: { roleKeys: keys } });
+  return toDTO(selectTokens().where(eq(apiTokens.id, tokenId)).get()!);
 }
 
 /** Revoke a token. Non-admins may only revoke their own tokens. */

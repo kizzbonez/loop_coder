@@ -1,5 +1,6 @@
 import type { ColumnKind } from '@loop/shared';
 import type { AgentRoleRow, ColumnRow, ProjectRow } from '../../db/schema';
+import { gitGuidance, gitNote, type GitContext } from './git';
 
 /** Stage-specific guidance: what to do in this column and how to hand the item on. */
 const STAGE_GUIDANCE: Partial<Record<ColumnKind, string>> = {
@@ -37,17 +38,22 @@ export function taskInstructions(opts: {
   role: AgentRoleRow;
   taskKey: string;
   workspacePath: string;
+  git: GitContext | null;
 }): string {
-  const { project, column, role, taskKey, workspacePath } = opts;
+  const { project, column, role, taskKey, workspacePath, git } = opts;
+  const gitSteps = git ? (gitGuidance(column.kind, git, taskKey) ?? gitNote(git)) : '';
   const definition =
     column.kind === 'backlog'
       ? `## Definition of Ready\n${project.definitionOfReady || '_Not defined._'}`
       : `## Definition of Done\n${project.definitionOfDone || '_Not defined._'}`;
   return [
     `# ${taskKey}: you are acting as the **${role.name}**`,
-    `Project **${project.name}** (${project.key}). Work in the project repository folder \`${workspacePath}\` (create it if it does not exist).`,
+    git
+      ? `Project **${project.name}** (${project.key}). Work in **your own git worktree** \`${git.worktree}\` on the branch \`${git.branch}\` (see Git below); the project folder \`${workspacePath}\` holds only finished work.`
+      : `Project **${project.name}** (${project.key}). Work in the project repository folder \`${workspacePath}\` (create it if it does not exist).`,
     `## Your role\n${role.instructions}`,
     `## Current stage: ${column.name}\n${STAGE_GUIDANCE[column.kind] ?? 'Do the work this stage requires, then move the item on with `move_work_item`.'}`,
+    gitSteps,
     definition,
     project.notes ? `## Project notes (shared memory)\n${project.notes}` : '',
     LOOP_FOOTER,
@@ -56,8 +62,8 @@ export function taskInstructions(opts: {
     .join('\n\n');
 }
 
-export function kickoffInstructions(opts: { project: ProjectRow; role: AgentRoleRow; workspacePath: string; existingItems: number }): string {
-  const { project, role, workspacePath, existingItems } = opts;
+export function kickoffInstructions(opts: { project: ProjectRow; role: AgentRoleRow; workspacePath: string; existingItems: number; git: GitContext | null }): string {
+  const { project, role, workspacePath, existingItems, git } = opts;
   return `# Project kickoff: you are acting as the **${role.name}**
 
 ## Project goal / requirements
@@ -79,7 +85,7 @@ ${role.instructions}
 ${existingItems > 0 ? `\nNote: the board already has ${existingItems} work item(s) created by humans. Review them and fit them into the backlog instead of duplicating them.\n` : ''}
 ## Definition of Ready
 ${project.definitionOfReady}
-
+${git ? `\n${gitNote(git)}\n` : ''}
 ${LOOP_FOOTER}`;
 }
 
@@ -136,7 +142,7 @@ export const WORK_LOOP_PROMPT = (projectKey: string, workspacePath: string) => `
 
 Work through the board using the \`loopcoder\` MCP tools:
 1. Call \`get_next_work\` with project "${projectKey}".
-2. It returns either a work item or a ceremony (kickoff, sprint planning, sprint review), the role you must play, and step-by-step instructions. Follow them exactly and fully. Do the real work in the repository folder \`${workspacePath}\` (relative to the Loop Coder workspaces directory; create it if needed).
+2. It returns either a work item or a ceremony (kickoff, sprint planning, sprint review), the role you must play, and step-by-step instructions. Follow them exactly and fully. Do the real work where they say: the repository folder \`${workspacePath}\` (relative to the Loop Coder workspaces directory; create it if needed), or your own git worktree and the item's branch when the project gives each agent a worktree.
 3. Finish the step with the tool the instructions name (\`move_work_item\`, \`mark_refined\`, \`start_sprint\`, \`complete_sprint\`, \`complete_kickoff\`, \`request_human_input\`).
 4. Repeat from step 1.
 

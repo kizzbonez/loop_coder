@@ -29,6 +29,13 @@
       "when": 1791423282046,
       "tag": "0003_agent_presence_log",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791432931490,
+      "tag": "0004_worktrees_and_agent_roles",
+      "breakpoints": true
     }
   ]
 }

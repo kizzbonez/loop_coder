@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import {
   AGENT_STATES,
+  GIT_MODES,
   AUTHOR_TYPES,
   CEREMONIES,
   COLUMN_KINDS,
@@ -136,6 +137,9 @@ export const projects = sqliteTable(
     definitionOfDone: text('definition_of_done').notNull().default(''),
     notes: text('notes').notNull().default(''),
     sprintCapacity: integer('sprint_capacity').notNull().default(20),
+    /** Each agent in its own git worktree with a branch per item, or everyone in the project folder. */
+    gitMode: text('git_mode', { enum: GIT_MODES }).notNull().default('worktrees'),
+    baseBranch: text('base_branch').notNull().default('main'),
     itemSeq: integer('item_seq').notNull().default(0),
     sprintSeq: integer('sprint_seq').notNull().default(0),
     kickoffCompletedAt: ts('kickoff_completed_at'),
@@ -163,6 +167,8 @@ export const apiTokens = sqliteTable(
     tokenHash: text('token_hash').notNull(),
     prefix: text('prefix').notNull(),
     lastClientName: text('last_client_name'),
+    /** The roles the agent using this token plays (role keys); null means every role. */
+    roleKeys: text('role_keys', { mode: 'json' }).$type<string[] | null>(),
     expiresAt: ts('expires_at').notNull(),
     lastUsedAt: ts('last_used_at'),
     revokedAt: ts('revoked_at'),

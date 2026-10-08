@@ -17,6 +17,8 @@ export function authenticateMcpRequest(req: Request): Actor | null {
     name: result.user.name,
     email: result.user.email,
     tokenId: result.token.id,
+    tokenName: result.token.name,
+    agentRoleKeys: result.token.roleKeys ?? null,
     // Recorded from clientInfo when the client initialised the MCP connection.
     agentName: agentDisplayName(result.token.lastClientName),
     tokenProjectId: result.token.projectId,

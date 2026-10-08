@@ -113,6 +113,8 @@ export function toProjectDTO(
     definitionOfDone: p.definitionOfDone,
     notes: p.notes,
     sprintCapacity: p.sprintCapacity,
+    gitMode: p.gitMode,
+    baseBranch: p.baseBranch,
     kickoffCompletedAt: p.kickoffCompletedAt?.toISOString() ?? null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),

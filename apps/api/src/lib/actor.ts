@@ -14,6 +14,10 @@ export interface Actor {
   tokenId?: string;
   /** Friendly name of the MCP client acting as the agent (e.g. "Claude Code", "Cursor"). */
   agentName?: string;
+  /** The name its owner gave the token; names the agent's git worktree. */
+  tokenName?: string;
+  /** The roles this agent plays; null or absent means every role. */
+  agentRoleKeys?: string[] | null;
   /** Scope restrictions carried by the token, if any. */
   tokenWorkspaceId?: string | null;
   tokenProjectId?: string | null;
@@ -24,6 +28,11 @@ export interface Actor {
 /** Stable identifier used for work-item claims. */
 export function claimantOf(actor: Actor): string {
   return actor.kind === 'agent' && actor.tokenId ? `token:${actor.tokenId}` : `user:${actor.userId}`;
+}
+
+/** Whether this actor may work in a role (humans and unrestricted agents may work in any). */
+export function playsRole(actor: Actor, roleKey: string): boolean {
+  return !actor.agentRoleKeys || actor.agentRoleKeys.includes(roleKey);
 }
 
 export const isAdmin = (actor: Pick<Actor, 'userRole'>): boolean => actor.userRole === 'admin';

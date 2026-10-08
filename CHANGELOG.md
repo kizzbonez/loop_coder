@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A git worktree per agent.** Agents working side by side no longer share one folder: each
+  works in its own git worktree (`<project>.worktrees/<agent>`) and each work item on its own
+  branch (`item/<KEY>`). Developers commit on the branch and bring in the latest finished work,
+  reviewers and QA check it out without taking it over, and whoever moves the item to Done
+  merges it into the base branch in the project folder (a conflicting merge sends the item
+  back for rework). `get_next_work` spells out every git step, the item drawer shows the
+  branch, and the Files tab shows only finished work. New projects use worktrees; **Settings →
+  Git** switches between worktrees and one shared folder and sets the base branch (strictly
+  validated, as it appears in the commands agents run).
+- **Roles per agent.** Each access token (one per agent) sets the roles its agent plays: every
+  role, or only some, chosen when the token is created (Account or the Agent tab) and changeable
+  later. `get_next_work` hands an agent only work in its roles and lets it wait otherwise; only
+  an agent that plays the Project Manager runs ceremonies, and the sprint review waits until
+  agents in other roles have finished the sprint's work.
+- Settings sections are named regions for screen readers.
+
+### Upgrading
+
+- Existing projects keep working in one shared folder; switch them under **Settings → Git**.
+  Existing tokens keep playing every role.
+
 ## [0.6.1] - 2026-10-08
 
 ### Changed

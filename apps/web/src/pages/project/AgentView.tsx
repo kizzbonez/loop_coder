@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { MCP_SERVER_NAME } from '@loop/shared';
+import { RolePicker } from '../../components/agents/RolePicker';
 import { Badge, Chip } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { CodeBlock, Section } from '../../components/ui/misc';
@@ -96,6 +97,7 @@ export function AgentView() {
   const sessions = useAgentSessions(project.id);
   const tokens = useTokenMutations();
   const [secret, setSecret] = useState<string | null>(null);
+  const [roleKeys, setRoleKeys] = useState<string[] | null>(null);
   const [client, setClient] = usePersistentChoice<ClientId>('lc-agent-client', ['claude', 'cursor', 'vscode', 'other'], 'claude');
   const defaultOs: OsId = /Windows/i.test(navigator.userAgent) ? 'windows' : 'unix';
   const [os, setOs] = usePersistentChoice<OsId>('lc-agent-os', ['windows', 'unix'], defaultOs);
@@ -199,19 +201,23 @@ export function AgentView() {
                   <CodeBlock code={secret} />
                 </div>
               ) : (
-                <Button
-                  variant="primary"
-                  icon={KeyRound}
-                  loading={tokens.create.isPending}
-                  onClick={() =>
-                    tokens.create.mutate(
-                      { name: `${clientLabel} · ${project.key}`, projectId: project.id, expiresInDays: 90 },
-                      { onSuccess: (r) => setSecret(r.secret), onError: (e) => toast.error(errorMessage(e)) },
-                    )
-                  }
-                >
-                  Create project token
-                </Button>
+                <div className="space-y-3">
+                  <RolePicker value={roleKeys} onChange={setRoleKeys} />
+                  <Button
+                    variant="primary"
+                    icon={KeyRound}
+                    loading={tokens.create.isPending}
+                    disabled={roleKeys?.length === 0}
+                    onClick={() =>
+                      tokens.create.mutate(
+                        { name: `${clientLabel} · ${project.key}`, projectId: project.id, expiresInDays: 90, roleKeys },
+                        { onSuccess: (r) => setSecret(r.secret), onError: (e) => toast.error(errorMessage(e)) },
+                      )
+                    }
+                  >
+                    Create project token
+                  </Button>
+                </div>
               ))}
           </Step>
 

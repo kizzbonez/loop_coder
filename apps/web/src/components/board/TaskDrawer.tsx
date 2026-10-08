@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import {
+  itemBranch,
   ITEM_TYPES,
   PRIORITIES,
   STORY_POINTS,
@@ -441,6 +442,13 @@ function TaskBody({
                 ))}
               </Select>
             </Prop>
+            {project.gitMode === 'worktrees' && task.type !== 'epic' && (
+              <Prop label="Branch">
+                <code className="font-mono text-[13px]" title="Agents commit this item's work here; it is merged into the base branch when the item is done">
+                  {itemBranch(task.key)}
+                </code>
+              </Prop>
+            )}
             <Prop label="Sprint">
               <Select value={task.sprintId ?? ''} disabled={!canEdit} onChange={(e) => void save({ sprintId: e.target.value || null })} className="h-8 py-1 text-[13px]" aria-label="Sprint">
                 <option value="">No sprint</option>

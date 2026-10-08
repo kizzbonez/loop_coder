@@ -98,6 +98,19 @@ The **effective role** is the column's role. For columns with `roleSource = task
 **Claims** (`claimedBy = token:<id>`, with an expiry) stop parallel sessions from
 colliding. Any stage change releases the claim, and `log_progress` extends it.
 
+**Roles per agent:** a token's `roleKeys` (null for every role) travel on the actor. The role
+map used for the effective role keeps only those roles, so an agent never gets an item or a
+stage outside them. Ceremonies need the Project Manager role; an active sprint is not
+reviewed while sprint candidates remain for roles the calling agent does not play.
+
+**Git worktrees** (`workflow/git.ts`): the server never runs git (the workspaces are mounted
+read-only); it tells agents exactly what to run. In `gitMode = worktrees` every agent (token)
+has a worktree `<workspace>/<project>.worktrees/<token-name>-<token-id>` and every item a
+branch `item/<KEY>`. Developers commit on the branch and detach when they hand it on;
+reviewers and QA use detached checkouts; whoever moves the item to Done merges it with
+`--no-ff` into `baseBranch` in the project folder. Every value that ends up in a command is
+restricted to safe characters: slugs, project keys and `branchNameSchema` for the base branch.
+
 **Rework:** moving an item from review or testing back to development increments
 `bounceCount`. When the agent exceeds the admin's limit, the item goes to **Needs Human**
 with a system remark. A human answer with *resume* returns it to the stage it came from

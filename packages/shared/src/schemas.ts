@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   AGENT_STATES,
+  GIT_MODES,
   COLUMN_KINDS,
   HUMAN_REMARK_KINDS,
   ITEM_TYPES,
@@ -32,6 +33,18 @@ export const projectKeySchema = z
   .trim()
   .toUpperCase()
   .regex(/^[A-Z][A-Z0-9]{1,7}$/, '2–8 characters, letters and digits, starting with a letter');
+/**
+ * A git branch name that is also safe inside the shell commands agents are given: letters,
+ * digits, ".", "_", "-" and "/"-separated parts, none starting with "." or "-", no "..", and
+ * not ending in ".lock".
+ */
+export const branchNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/, 'Use letters, digits, ".", "_", "-" and "/" (for example main or release/2.0)')
+  .refine((b) => !b.includes('..') && !b.endsWith('.lock') && !b.endsWith('.'), 'Not a valid git branch name');
 export const storyPointsSchema = z
   .number()
   .int()
@@ -57,6 +70,14 @@ export const setupSchema = z.object({
 export const registerSchema = z.object({ email: emailSchema, name: nameSchema, password: passwordSchema });
 export const changePasswordSchema = z.object({ currentPassword: passwordSchema, newPassword: passwordSchema });
 export const updateProfileSchema = z.object({ name: nameSchema });
+/** A set of agent role keys (lowercase, as in the Agent roles list). */
+export const agentRoleKeysSchema = z
+  .array(z.string().trim().regex(/^[a-z][a-z0-9_]{1,39}$/, 'Unknown role'))
+  .min(1, 'Choose at least one role, or allow every role')
+  .max(30)
+  .transform((keys) => [...new Set(keys)]);
+export const updateTokenSchema = z.object({ roleKeys: agentRoleKeysSchema.nullable() });
+
 export const createTokenSchema = z
   .object({
     name: z.string().trim().min(1).max(60),
@@ -64,6 +85,8 @@ export const createTokenSchema = z
     workspaceId: uuidSchema.nullable().optional(),
     projectId: uuidSchema.nullable().optional(),
     expiresInDays: z.number().int().min(1).max(365),
+    /** The roles this agent plays; omitted or null for every role. */
+    roleKeys: agentRoleKeysSchema.nullable().optional(),
   })
   .refine((v) => !(v.workspaceId && v.projectId), {
     message: 'Scope a token to a workspace or a project, not both',
@@ -108,6 +131,8 @@ export const updateProjectSchema = z
     notes: z.string().max(100000),
     sprintCapacity: z.number().int().min(1).max(500),
     agentState: z.enum(AGENT_STATES),
+    gitMode: z.enum(GIT_MODES),
+    baseBranch: branchNameSchema,
   })
   .partial();
 
@@ -260,7 +285,8 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type SetupInput = z.input<typeof setupSchema>;
 export type SetupData = z.output<typeof setupSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
-export type CreateTokenInput = z.infer<typeof createTokenSchema>;
+export type CreateTokenInput = z.input<typeof createTokenSchema>;
+export type UpdateTokenInput = z.input<typeof updateTokenSchema>;
 export type CreateWorkspaceInput = z.input<typeof createWorkspaceSchema>;
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
 export type CreateProjectInput = z.input<typeof createProjectSchema>;

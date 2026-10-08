@@ -2,7 +2,7 @@ import { Save, Trash } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import type { ColumnDTO, RoleSource } from '@loop/shared';
+import type { ColumnDTO, GitMode, RoleSource } from '@loop/shared';
 import { Button } from '../../components/ui/Button';
 import { useConfirm } from '../../components/ui/Confirm';
 import { Input, Select, Textarea } from '../../components/ui/Field';
@@ -124,6 +124,7 @@ export function ProjectSettingsView() {
   const [general, setGeneral] = useState({ name: project.name, description: project.description, sprintCapacity: String(project.sprintCapacity) });
   const [agile, setAgile] = useState({ definitionOfReady: project.definitionOfReady, definitionOfDone: project.definitionOfDone });
   const [notes, setNotes] = useState(project.notes);
+  const [git, setGit] = useState<{ gitMode: GitMode; baseBranch: string }>({ gitMode: project.gitMode, baseBranch: project.baseBranch });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!isOwner) return <Navigate to={`/p/${project.id}/board`} replace />;
@@ -182,6 +183,36 @@ export function ProjectSettingsView() {
         <Button variant="primary" icon={Save} className="mt-4" loading={update.isPending} onClick={() => save({ notes }, 'Notes')}>
           Save notes
         </Button>
+      </Section>
+
+      <Section
+        title="Git"
+        description="How agents share the code. With a worktree per agent, several agents can work at once without touching each other's files: each item gets its own branch, merged into the base branch when it is done."
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
+            <Select label="Working copies" value={git.gitMode} onChange={(e) => setGit({ ...git, gitMode: e.target.value as GitMode })}>
+              <option value="worktrees">A git worktree per agent, a branch per item</option>
+              <option value="shared">One shared project folder</option>
+            </Select>
+            <Input
+              label="Base branch"
+              value={git.baseBranch}
+              error={errors.baseBranch}
+              onChange={(e) => setGit({ ...git, baseBranch: e.target.value })}
+              hint="Finished items are merged into it"
+            />
+          </div>
+          {git.gitMode === 'worktrees' && (
+            <p className="text-xs text-muted">
+              Each agent works in <code className="font-mono">{project.workspacePath}.worktrees/&lt;agent&gt;</code> on <code className="font-mono">item/{project.key}-&lt;n&gt;</code>. The project folder keeps only
+              finished work, so the Files tab shows what has been merged.
+            </p>
+          )}
+          <Button variant="primary" icon={Save} loading={update.isPending} onClick={() => save({ gitMode: git.gitMode, baseBranch: git.baseBranch.trim() }, 'Git settings')}>
+            Save
+          </Button>
+        </div>
       </Section>
 
       <Section title="Board columns" description="Rename stages, set WIP limits and choose which agent role works in each stage.">

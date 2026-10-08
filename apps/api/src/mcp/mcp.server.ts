@@ -28,6 +28,7 @@ import { getRoleByKey, listRoles } from '../modules/roles/roles.service';
 import { getActiveSprintDTO } from '../modules/sprints/sprints.query';
 import { getTaskDTO, listProjectTaskDTOs, listRemarks, resolveTaskRef } from '../modules/tasks/tasks.query';
 import { applyTaskUpdate, insertTask } from '../modules/tasks/tasks.service';
+import { gitContext } from '../modules/workflow/git';
 import { WORK_LOOP_PROMPT } from '../modules/workflow/instructions';
 import {
   addAgentRemark,
@@ -185,10 +186,18 @@ export function buildMcpServer(actor: Actor): McpServer {
         const ws = db.select().from(workspaces).where(eq(workspaces.id, p.workspaceId)).get()!;
         const sprint = getActiveSprintDTO(p.id);
         const roles = listRoles().filter((r) => r.enabled);
+        const git = gitContext(p, `${ws.slug}/${p.key.toLowerCase()}`, actor, null);
         touch(p.id);
         return [
           `# ${p.name} (${p.key})`,
           `Workspace: ${ws.name} · Repository folder: \`${ws.slug}/${p.key.toLowerCase()}\` · Agent: ${p.agentState}`,
+          [
+            '## You',
+            `Roles: ${actor.agentRoleKeys ? actor.agentRoleKeys.map((k) => `\`${k}\``).join(', ') : 'every role'}`,
+            git
+              ? `Git: your own worktree \`${git.worktree}\`, a branch per item (\`item/<KEY>\`), merged into \`${git.base}\` when the item is done`
+              : 'Git: everyone works in the repository folder',
+          ].join('\n'),
           `## Goal / requirements\n${p.description || '_none_'}`,
           `## Board\n${boardSummary(p.id)}`,
           `## Active sprint\n${sprint ? `${sprint.name}: ${sprint.goal} (${sprint.stats.done}/${sprint.stats.total} done, ${sprint.stats.donePoints}/${sprint.stats.points} pts)` : '_none_'}`,

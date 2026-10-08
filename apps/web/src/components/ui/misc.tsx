@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Check, Copy, LoaderCircle, type LucideIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router';
 import { initials } from '../../lib/format';
 
@@ -162,11 +162,15 @@ export function TabNav({ items, className }: { items: TabItem[]; className?: str
 }
 
 export function Section({ title, description, children, actions }: { title: ReactNode; description?: ReactNode; children: ReactNode; actions?: ReactNode }) {
+  // Named by its heading, so assistive technology can jump between sections.
+  const headingId = useId();
   return (
-    <section className="card p-5">
+    <section className="card p-5" aria-labelledby={headingId}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-semibold">{title}</h2>
+          <h2 id={headingId} className="text-[15px] font-semibold">
+            {title}
+          </h2>
           {description && <p className="mt-0.5 text-[13px] text-muted">{description}</p>}
         </div>
         {actions}

@@ -169,9 +169,9 @@ or **Other MCP client**) and your operating system. The page then shows exactly 
 
 ### Step 1: Create a project token
 
-Click **Create project token**. The token lets the agent act on **this project only**,
-with your permissions. It is shown **once**, so copy it now. All snippets on the page fill in
-the token automatically.
+Choose the **roles this agent plays** (every role, or only some), then click **Create project
+token**. The token lets the agent act on **this project only**, with your permissions. It is
+shown **once**, so copy it now. All snippets on the page fill in the token automatically.
 
 ### Step 2: Create the project folder
 
@@ -212,9 +212,37 @@ Loop Coder folder, and the **Files** tab shows it live. Run the commands shown (
 
 The agent now works on its own. You can follow everything on the board.
 
-> [!TIP]
-> Several agents can work on the same project at once, for example Claude Code building
-> features while Cursor does QA. Create one token per agent so each is labelled correctly.
+### Several agents at once
+
+Several agents can work on the same project side by side, for example one Claude Code session
+building features while another reviews and tests. Set it up like this:
+
+1. **One token per agent.** Each token is one agent: it is labelled on the board and in the
+   office, and it gets its own git worktree (see below). Two sessions sharing a token count as
+   the same agent and could pick the same item.
+2. **Roles per agent.** When you create a token, choose **Only these roles** and tick the roles
+   that agent plays, for example *Senior, Backend and Frontend Developer* for a builder and
+   *Code Reviewer* and *QA Engineer* for a checker. `get_next_work` then hands that agent only
+   work for its roles; with nothing to do it waits connected. Only an agent that plays the
+   **Project Manager** runs the kickoff, backlog refinement, sprint planning and sprint reviews,
+   so make sure one of them does. Change the roles at any time under **Account → Access tokens
+   → Roles**.
+3. **A git worktree per agent.** New projects give every agent its own working copy, so agents
+   never edit the same files:
+   - each agent works in `workspaces/<workspace>/<project>.worktrees/<agent>`, a git worktree of
+     the project folder;
+   - each work item has its own branch, `item/<KEY>` (for example `item/CANDLE-12`), shown in
+     the item's details;
+   - developers commit on the item's branch and bring in the latest finished work before
+     handing it on; reviewers and QA check the branch out in their own worktree without taking
+     it over;
+   - whoever moves the item to **Done** merges its branch into the base branch in the project
+     folder (and sends it back for rework if the merge conflicts).
+
+   The project folder therefore holds only finished work, which is what the **Files** tab shows.
+   Change this under **Settings → Git**: *A git worktree per agent* (the default for new
+   projects) or *One shared project folder* (how projects created before this worked), and the
+   **base branch** (`main` by default).
 
 ---
 
@@ -529,6 +557,10 @@ board columns. Project owners find these settings under **Settings**.
   checks them.
 - **Project notes:** the team's shared memory. The agent records decisions, conventions and
   lessons here and reads them at every step. You can edit them too.
+- **Git:** whether each agent works in its own git worktree with a branch per item, or everyone
+  in the one project folder, and the **base branch** finished items are merged into. Branch
+  names may contain letters, digits, `.`, `_`, `-` and `/` (see
+  [Several agents at once](#several-agents-at-once)).
 - **Board columns:** rename columns, change colours, set **WIP limits**, choose which **agent
   role** works each column, and whether the role comes from the column or from each item's
   assigned role.
@@ -548,6 +580,8 @@ connect. Open **Account & tokens** in the sidebar.
 - **Access tokens:** create, see and revoke the tokens your agents use. Give each token a
   clear name, limit it to **one project or workspace** whenever you can, and choose an
   expiry. The token value is shown only once. Revoking it stops every agent using it immediately.
+  Each token also sets the **roles** its agent plays (every role, or only some); click **Roles**
+  next to a token to change them.
 - **Password:** change it. All your other sessions are signed out.
 - **Active sessions:** every browser signed in to your account. Sign out the ones you don't recognise.
 

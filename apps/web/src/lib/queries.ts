@@ -428,6 +428,10 @@ export function useTokenMutations() {
       mutationFn: (id: string) => api.delete(`/account/tokens/${id}`),
       onSuccess: () => qc.invalidateQueries({ queryKey: keys.tokens }),
     }),
+    setRoles: useMutation({
+      mutationFn: ({ id, roleKeys }: { id: string; roleKeys: string[] | null }) => api.patch<ApiTokenDTO>(`/account/tokens/${id}`, { roleKeys }),
+      onSuccess: () => qc.invalidateQueries({ queryKey: keys.tokens }),
+    }),
   };
 }
 

@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { createTokenSchema, updateProfileSchema } from '@loop/shared';
+import { createTokenSchema, updateProfileSchema, updateTokenSchema } from '@loop/shared';
 import { idParam, parse } from '../../lib/http';
 import { notFound } from '../../lib/errors';
 import { actorFrom, requireUser } from '../../middleware/auth';
 import { audit } from '../audit/audit.service';
 import { listUserSessions, revokeSession } from '../auth/sessions.service';
-import { createToken, listOwnTokens, revokeToken } from '../tokens/tokens.service';
+import { createToken, listOwnTokens, revokeToken, updateTokenRoles } from '../tokens/tokens.service';
 import { updateProfile } from '../users/users.service';
 
 /** Self-service account management: profile, personal access tokens, sessions. */
@@ -25,6 +25,11 @@ export function accountRoutes(): Router {
   router.post('/tokens', (req, res) => {
     const input = parse(createTokenSchema, req.body);
     res.status(201).json(createToken(actorFrom(req), input));
+  });
+
+  router.patch('/tokens/:id', (req, res) => {
+    const { roleKeys } = parse(updateTokenSchema, req.body);
+    res.json(updateTokenRoles(actorFrom(req), idParam(req, 'id', 'Token'), roleKeys));
   });
 
   router.delete('/tokens/:id', (req, res) => {

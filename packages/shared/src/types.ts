@@ -1,4 +1,5 @@
 import type {
+  GitMode,
   AccessLevel,
   AgentState,
   AuthorType,
@@ -47,6 +48,8 @@ export interface ApiTokenDTO {
   projectName: string | null;
   userId: string;
   userEmail?: string;
+  /** The roles the agent using this token plays; null means every role. */
+  roleKeys: string[] | null;
   createdAt: string;
   expiresAt: string;
   lastUsedAt: string | null;
@@ -120,6 +123,10 @@ export interface ProjectDTO {
   definitionOfDone: string;
   notes: string;
   sprintCapacity: number;
+  /** "worktrees": each agent works in its own git worktree, one branch per item. */
+  gitMode: GitMode;
+  /** The branch finished work is merged into (worktree mode). */
+  baseBranch: string;
   kickoffCompletedAt: string | null;
   createdAt: string;
   updatedAt: string;

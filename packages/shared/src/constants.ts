@@ -128,3 +128,15 @@ export const MCP_SERVER_NAME = 'loopcoder';
 export function formatTaskKey(projectKey: string, number: number): string {
   return `${projectKey}-${number}`;
 }
+
+/**
+ * How agents use git in a project: all in the project folder ("shared"), or each agent in its
+ * own git worktree with a branch per work item ("worktrees"), so parallel agents never collide.
+ */
+export const GIT_MODES = ['shared', 'worktrees'] as const;
+export type GitMode = (typeof GIT_MODES)[number];
+
+/** The branch that carries a work item's changes in worktree mode, e.g. "item/SHOP-12". */
+export function itemBranch(taskKey: string): string {
+  return `item/${taskKey}`;
+}

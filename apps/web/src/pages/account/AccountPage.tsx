@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Laptop, Plus, Save, ShieldCheck, TriangleAlert, User, X } from 'lucide-react';
+import { KeyRound, Laptop, Plus, Save, ShieldCheck, TriangleAlert, User, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { UserDTO } from '@loop/shared';
+import { RolePicker, roleSummary } from '../../components/agents/RolePicker';
 import { Badge } from '../../components/ui/Badge';
 import { Button, IconButton } from '../../components/ui/Button';
 import { useConfirm } from '../../components/ui/Confirm';
@@ -11,7 +12,7 @@ import { Modal } from '../../components/ui/Modal';
 import { CodeBlock, Section } from '../../components/ui/misc';
 import { api, ApiError, errorMessage } from '../../lib/api';
 import { formatDate, timeAgo } from '../../lib/format';
-import { keys, useConfig, useMe, useProjects, useSessions, useTokenMutations, useTokens, useWorkspaces } from '../../lib/queries';
+import { keys, useConfig, useMe, useProjects, useRoles, useSessions, useTokenMutations, useTokens, useWorkspaces } from '../../lib/queries';
 
 function Profile() {
   const me = useMe();
@@ -149,14 +150,18 @@ function Tokens() {
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', scope: '', expiresInDays: '90' });
+  const [roleKeys, setRoleKeys] = useState<string[] | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; roleKeys: string[] | null } | null>(null);
+  const roles = useRoles();
+  const roleNames = new Map((roles.data ?? []).map((r) => [r.key, r.name]));
 
   return (
     <Section
       title="Access tokens"
       description="Personal access tokens let AI coding agents (Claude Code, Cursor, VS Code or any MCP client) work on your projects with your permissions. Prefer project-scoped tokens."
       actions={
-        <Button variant="primary" icon={Plus} onClick={() => (setSecret(null), setOpen(true))}>
+        <Button variant="primary" icon={Plus} onClick={() => (setSecret(null), setRoleKeys(null), setOpen(true))}>
           New token
         </Button>
       }
@@ -177,7 +182,13 @@ function Tokens() {
                   {t.projectName ? `Project: ${t.projectName}` : t.workspaceName ? `Workspace: ${t.workspaceName}` : 'All my projects'} · created {formatDate(t.createdAt)} · expires{' '}
                   {formatDate(t.expiresAt)} · last used {timeAgo(t.lastUsedAt)}
                 </div>
+                <div className="text-xs text-muted">Roles: {roleSummary(t.roleKeys, roleNames)}</div>
               </div>
+              {!t.revokedAt && (
+                <Button size="sm" variant="ghost" icon={Users} onClick={() => setEditing({ id: t.id, name: t.name, roleKeys: t.roleKeys })}>
+                  Roles
+                </Button>
+              )}
               {!t.revokedAt && (
                 <Button
                   size="sm"
@@ -213,7 +224,7 @@ function Tokens() {
               </Button>
               <Button
                 variant="primary"
-                disabled={!form.name.trim()}
+                disabled={!form.name.trim() || roleKeys?.length === 0}
                 loading={m.create.isPending}
                 onClick={() => {
                   const [kind, id] = form.scope.split(':');
@@ -221,6 +232,7 @@ function Tokens() {
                     {
                       name: form.name.trim(),
                       expiresInDays: Number(form.expiresInDays),
+                      roleKeys,
                       ...(kind === 'p' ? { projectId: id } : kind === 'w' ? { workspaceId: id } : {}),
                     },
                     { onSuccess: (r) => setSecret(r.secret), onError: (e) => toast.error(errorMessage(e)) },
@@ -267,8 +279,39 @@ function Tokens() {
                 </option>
               ))}
             </Select>
+            <RolePicker value={roleKeys} onChange={setRoleKeys} />
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing ? `Roles for “${editing.name}”` : ''}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={Save}
+              disabled={editing?.roleKeys?.length === 0}
+              loading={m.setRoles.isPending}
+              onClick={() =>
+                editing &&
+                m.setRoles.mutate(
+                  { id: editing.id, roleKeys: editing.roleKeys },
+                  { onSuccess: () => (toast.success('Roles saved. The agent gets matching work from its next step.'), setEditing(null)), onError: (e) => toast.error(errorMessage(e)) },
+                )
+              }
+            >
+              Save
+            </Button>
+          </>
+        }
+      >
+        {editing && <RolePicker value={editing.roleKeys} onChange={(roleKeys) => setEditing({ ...editing, roleKeys })} />}
       </Modal>
     </Section>
   );

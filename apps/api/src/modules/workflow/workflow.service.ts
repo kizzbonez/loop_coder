@@ -9,7 +9,7 @@ import {
 } from '@loop/shared';
 import { db, type Tx } from '../../db/client';
 import { boardColumns, projects, sprints, tasks, workspaces, type AgentRoleRow, type ColumnRow, type ProjectRow, type TaskRow } from '../../db/schema';
-import { claimantOf, type Actor } from '../../lib/actor';
+import { claimantOf, playsRole, type Actor } from '../../lib/actor';
 import { badRequest, conflict, notFound } from '../../lib/errors';
 import { addMinutes, now } from '../../lib/time';
 import { EventBatch, subscribe } from '../../realtime/bus';
@@ -30,6 +30,7 @@ import {
   reviewInstructions,
   taskInstructions,
 } from './instructions';
+import { gitContext } from './git';
 
 export type NoWorkStatus = 'paused' | 'stopped' | 'disabled' | 'complete' | 'waiting';
 
@@ -154,12 +155,13 @@ function claimTask(
   const dto = getTaskDTO(tx, task.id);
   batch.add(project.id, { type: 'task.upserted', task: dto });
 
+  const path = workspacePath(tx, project);
   return {
     kind: 'task',
     task: { ...dto, remarks: listRemarks(task.id, tx) },
     role,
     column: current,
-    instructions: taskInstructions({ project, column: current, role, taskKey: key, workspacePath: workspacePath(tx, project) }),
+    instructions: taskInstructions({ project, column: current, role, taskKey: key, workspacePath: path, git: gitContext(project, path, actor, key) }),
   };
 }
 
@@ -234,14 +236,20 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
     const claimant = claimantOf(actor);
     const t = now();
     const columns = getColumns(projectId, tx);
-    const roles = rolesById(tx);
+    const allRoles = rolesById(tx);
+    // An agent configured for some roles only gets work in those roles; ceremonies need the PM.
+    const roles = new Map([...allRoles].filter(([, r]) => playsRole(actor, r.key)));
+    const pm = projectManagerRole(columns, allRoles);
+    const pmAllowed = playsRole(actor, pm.key);
     const done = columnByKind(columns, 'done');
     const backlog = columnByKind(columns, 'backlog');
-    const pm = projectManagerRole(columns, roles);
     const path = workspacePath(tx, project);
 
     // 1. Kickoff ---------------------------------------------------------------
     if (!project.kickoffCompletedAt) {
+      if (!pmAllowed) {
+        return { kind: 'none', status: 'waiting', message: 'The project kickoff needs an agent that plays the Project Manager; your roles do not include it.' };
+      }
       if (!ceremonyAvailable(project, claimant, t)) {
         return { kind: 'none', status: 'waiting', message: 'Another agent session is running the project kickoff.' };
       }
@@ -251,7 +259,7 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
         kind: 'ceremony',
         ceremony: 'kickoff',
         role: pm,
-        instructions: kickoffInstructions({ project, role: pm, workspacePath: path, existingItems: Number(existing?.n ?? 0) }),
+        instructions: kickoffInstructions({ project, role: pm, workspacePath: path, existingItems: Number(existing?.n ?? 0), git: gitContext(project, path, actor, null) }),
       };
     }
 
@@ -286,6 +294,8 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
       const role = effectiveRole(task, column, roles);
       if (role) return claimTask(tx, batch, actor, project, task, column, role, columns);
     }
+    // Sprint work this agent may not do still belongs to agents in other roles: the sprint is not over.
+    const workForOtherRoles = sprintCandidates.some((task) => effectiveRole(task, columns.find((c) => c.id === task.columnId)!, allRoles));
 
     // 3. Backlog refinement ------------------------------------------------------
     const refineRole = effectiveRole({ assignedRoleId: null } as TaskRow, backlog, roles);
@@ -307,7 +317,7 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
     }
 
     // 4. Sprint review -------------------------------------------------------------
-    if (active) {
+    if (active && pmAllowed) {
       const othersWorking = tx
         .select({ id: tasks.id })
         .from(tasks)
@@ -320,6 +330,9 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
           ),
         )
         .get();
+      if (workForOtherRoles) {
+        return { kind: 'none', status: 'waiting', message: 'Sprint work remains for agents in other roles; the sprint review waits until it is done.' };
+      }
       if (othersWorking || !ceremonyAvailable(project, claimant, t)) {
         return { kind: 'none', status: 'waiting', message: 'Other agent sessions are still working on this sprint.' };
       }
@@ -359,7 +372,7 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
         ),
       )
       .all();
-    if (refined.length > 0 && ceremonyAvailable(project, claimant, t)) {
+    if (refined.length > 0 && pmAllowed && ceremonyAvailable(project, claimant, t)) {
       claimCeremony(tx, batch, actor, project, 'sprint_planning', pm);
       const carryKinds = new Set(['todo', 'in_progress', 'review', 'testing']);
       const carried = tx
@@ -397,10 +410,11 @@ export function getNextWork(actor: Actor, projectId: string): WorkPackage {
     }
     const blockedCol = columnByKind(columns, 'blocked');
     const blocked = open.filter((o) => o.columnId === blockedCol.id).length;
+    const mine = actor.agentRoleKeys ? ` Your roles: ${actor.agentRoleKeys.join(', ')}; other work waits for agents in other roles.` : '';
     return {
       kind: 'none',
       status: 'waiting',
-      message: `Nothing is actionable right now: ${open.length} open item(s)${blocked ? `, ${blocked} waiting in "${blockedCol.name}" for a human answer` : ''}. Other items are assigned to humans, claimed by another session or waiting on dependencies. Check back later.`,
+      message: `Nothing is actionable right now: ${open.length} open item(s)${blocked ? `, ${blocked} waiting in "${blockedCol.name}" for a human answer` : ''}. Other items are assigned to humans, claimed by another session or waiting on dependencies.${mine} Check back later.`,
     };
   });
   batch.flush();
