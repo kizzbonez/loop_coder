@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The Software Engineer is now three developer roles.** The **Backend Developer** builds
+  APIs, data and migrations, business logic and integrations; the **Frontend Developer**
+  builds screens and components, with accessibility and responsive layouts; the **Senior
+  Developer** takes work that spans both, foundation code, complex changes and hard bugs, and
+  owns the contract between frontend and backend. The Project Manager assigns each item to
+  the right one, and items without a role go to the Senior Developer. Each has its own desk
+  and look in the office.
+- Upgrading keeps everything working: the existing Software Engineer becomes the Senior
+  Developer (the same role, so items, columns, claims and history follow), instructions
+  nobody edited are replaced by the new ones, and edited ones are kept. The Project Manager's
+  instructions learn about the new roles unless they were customised.
+
 ## [0.4.0] - 2026-10-08
 
 ### Added

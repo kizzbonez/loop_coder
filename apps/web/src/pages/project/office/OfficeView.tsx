@@ -235,7 +235,7 @@ export function OfficeView() {
               <p className="mt-0.5 text-xs text-muted">
                 {agentsOnline.length === 0
                   ? 'No agent connected. Connect one and it takes over the role it plays.'
-                  : `Agents: ${[...new Set(agentsOnline.map((a) => a.name))].join(', ')}`}
+                  : `Agents: ${[...new Set(agentsOnline.map((a) => a.name))].sort((a, b) => a.localeCompare(b)).join(', ')}`}
               </p>
             </header>
             <ul className="max-h-[420px] divide-y divide-line overflow-y-auto">

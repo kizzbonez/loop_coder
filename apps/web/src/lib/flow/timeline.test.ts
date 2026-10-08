@@ -56,7 +56,7 @@ describe('segment ids', () => {
 describe('presenceAt', () => {
   const entries = [
     row(0, { ceremony: 'kickoff' }),
-    row(5, { sessionId: 's2', agentName: 'Cursor', roleKey: 'software_engineer', taskId: 't1', taskKey: 'SHOP-1' }),
+    row(5, { sessionId: 's2', agentName: 'Cursor', roleKey: 'senior_developer', taskId: 't1', taskKey: 'SHOP-1' }),
     row(8, { ceremony: null, activity: 'Completed the project kickoff' }),
   ];
   const times = entries.map((e) => Date.parse(e.at));
@@ -67,7 +67,7 @@ describe('presenceAt', () => {
     const later = presenceAt(entries, times, ms(9), WINDOW);
     expect(later.map((a) => a.agentName)).toEqual(['Claude Code', 'Cursor']); // stable order by session
     expect(later[0]).toMatchObject({ currentCeremony: null, currentActivity: 'Completed the project kickoff', lastSeenAt: at(8) });
-    expect(later[1]).toMatchObject({ currentTaskId: 't1', currentTaskKey: 'SHOP-1', currentRoleKey: 'software_engineer' });
+    expect(later[1]).toMatchObject({ currentTaskId: 't1', currentTaskKey: 'SHOP-1', currentRoleKey: 'senior_developer' });
   });
 
   it('lets an agent go offline after the online window without news', () => {
@@ -114,10 +114,10 @@ describe('buildReplayModel', () => {
     activity({ action: 'project.kickoff_completed', createdAt: at(2), roleKey: 'project_manager' }),
     activity({ action: 'agent.progress', message: 'Thinking about the plan', createdAt: at(10) }),
     activity({ action: 'task.moved', taskId: 't1', taskKey: 'SHOP-1', fromKind: 'backlog', toKind: 'todo', createdAt: at(20) }),
-    activity({ action: 'task.moved', taskId: 't1', taskKey: 'SHOP-1', fromKind: 'todo', toKind: 'in_progress', createdAt: at(30), roleKey: 'software_engineer' }),
-    activity({ action: 'task.moved', taskId: 't1', taskKey: 'SHOP-1', fromKind: 'in_progress', toKind: 'done', createdAt: at(50), roleKey: 'software_engineer' }),
+    activity({ action: 'task.moved', taskId: 't1', taskKey: 'SHOP-1', fromKind: 'todo', toKind: 'in_progress', createdAt: at(30), roleKey: 'senior_developer' }),
+    activity({ action: 'task.moved', taskId: 't1', taskKey: 'SHOP-1', fromKind: 'in_progress', toKind: 'done', createdAt: at(50), roleKey: 'senior_developer' }),
   ].reverse(); // newest first, as the API returns them
-  const remark = { id: 'r1', taskId: 't1', projectId: 'p', authorType: 'agent', authorUserId: 'u', authorName: 'Claude Code', roleKey: 'software_engineer', kind: 'work_log', body: 'Built it', createdAt: at(40) } as RemarkDTO;
+  const remark = { id: 'r1', taskId: 't1', projectId: 'p', authorType: 'agent', authorUserId: 'u', authorName: 'Claude Code', roleKey: 'senior_developer', kind: 'work_log', body: 'Built it', createdAt: at(40) } as RemarkDTO;
   const data = (over: Partial<ReplayDTO>): ReplayDTO => ({
     segments: [],
     segment: { id: 'sprint-1', label: 'Sprint 1', detail: null, from: at(2), to: at(55) },
@@ -150,7 +150,7 @@ describe('buildReplayModel', () => {
     const model = buildReplayModel(data({}), tasks, columnKindOf, now, ms(59));
     const frame = model.frame(ms(31));
     expect(frame.exact).toBe(false);
-    expect(frame.agents).toEqual([expect.objectContaining({ name: 'Claude Code', stage: 'in_progress', roleKey: 'software_engineer', taskKey: 'SHOP-1', working: true })]);
+    expect(frame.agents).toEqual([expect.objectContaining({ name: 'Claude Code', stage: 'in_progress', roleKey: 'senior_developer', taskKey: 'SHOP-1', working: true })]);
     // A remark at 10:40 keeps the agent around until 10:50; then the move to Done.
     expect(model.frame(ms(49)).agents).toHaveLength(1);
     expect(model.frame(ms(50)).agents[0]).toMatchObject({ stage: 'done' });
@@ -160,7 +160,7 @@ describe('buildReplayModel', () => {
 
   it('uses the presence log where it exists, exactly as recorded', () => {
     const presence = [
-      row(28, { roleKey: 'software_engineer', taskId: 't1', taskKey: 'SHOP-1', activity: 'Working on SHOP-1 as Software Engineer' }),
+      row(28, { roleKey: 'senior_developer', taskId: 't1', taskKey: 'SHOP-1', activity: 'Working on SHOP-1 as Senior Developer' }),
       row(45, { roleKey: 'project_manager', ceremony: 'sprint_review', activity: 'Sprint review as Project Manager' }),
     ];
     const model = buildReplayModel(data({ presence, presenceSince: at(28) }), tasks, columnKindOf, now, ms(59));
@@ -168,7 +168,7 @@ describe('buildReplayModel', () => {
     const working = model.frame(ms(31));
     expect(working.exact).toBe(true);
     expect(working.agents).toEqual([
-      expect.objectContaining({ id: 's1', stage: 'in_progress', roleKey: 'software_engineer', taskKey: 'SHOP-1', activity: 'Working on SHOP-1 as Software Engineer', working: true }),
+      expect.objectContaining({ id: 's1', stage: 'in_progress', roleKey: 'senior_developer', taskKey: 'SHOP-1', activity: 'Working on SHOP-1 as Senior Developer', working: true }),
     ]);
     // A ceremony from the log sets the phase.
     const review = model.frame(ms(46));

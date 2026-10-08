@@ -28,7 +28,7 @@ test('create a user from the admin console', async ({ page }) => {
 
 test('the nine SDLC agent roles are listed and editable', async ({ page }) => {
   await page.goto('/admin/roles');
-  for (const role of ['Project Manager', 'Software Architect', 'UI/UX Designer', 'Software Engineer', 'Code Reviewer', 'QA Engineer', 'DevOps Engineer', 'Security Engineer', 'Technical Writer']) {
+  for (const role of ['Project Manager', 'Software Architect', 'UI/UX Designer', 'Senior Developer', 'Backend Developer', 'Frontend Developer', 'Code Reviewer', 'QA Engineer', 'DevOps Engineer', 'Security Engineer', 'Technical Writer']) {
     await expect(page.getByText(role, { exact: true }).first()).toBeVisible();
   }
   await page.getByRole('button', { name: 'Edit QA Engineer' }).click();

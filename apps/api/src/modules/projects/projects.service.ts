@@ -48,8 +48,9 @@ interface ColumnTemplate {
 /** Default SDLC/Scrum workflow for every new project board. */
 export const DEFAULT_COLUMNS: ColumnTemplate[] = [
   { kind: 'backlog', name: 'Backlog', roleKey: 'project_manager', roleSource: 'column', color: '#8b5cf6' },
-  { kind: 'todo', name: 'To Do', roleKey: 'software_engineer', roleSource: 'task', color: '#64748b' },
-  { kind: 'in_progress', name: 'In Progress', roleKey: 'software_engineer', roleSource: 'task', color: '#3b82f6' },
+  // The item's own role works it; items without one go to the Senior Developer.
+  { kind: 'todo', name: 'To Do', roleKey: 'senior_developer', roleSource: 'task', color: '#64748b' },
+  { kind: 'in_progress', name: 'In Progress', roleKey: 'senior_developer', roleSource: 'task', color: '#3b82f6' },
   { kind: 'review', name: 'Code Review', roleKey: 'code_reviewer', roleSource: 'column', color: '#f59e0b' },
   { kind: 'testing', name: 'QA / Testing', roleKey: 'qa_engineer', roleSource: 'column', color: '#14b8a6' },
   { kind: 'blocked', name: 'Needs Human', roleKey: null, roleSource: 'column', color: '#ef4444' },

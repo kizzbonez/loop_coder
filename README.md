@@ -11,9 +11,9 @@ asks, and can pause it at any time.
 - **Workspaces → projects → one board per project**, with members and roles per workspace.
 - **Real SDLC and Scrum:** epics, stories, tasks, bugs, spikes; story points; dependencies;
   Definition of Ready and Done; sprint planning, review and retrospective; WIP limits; burndown.
-- **One agent, nine roles:** Project Manager, Software Architect, UI/UX Designer, Software
-  Engineer, Code Reviewer, QA Engineer, DevOps, Security and Technical Writer. Their
-  instructions are editable, and you can add your own roles.
+- **One agent, eleven roles:** Project Manager, Software Architect, UI/UX Designer, Senior
+  Developer, Backend Developer, Frontend Developer, Code Reviewer, QA Engineer, DevOps,
+  Security and Technical Writer. Their instructions are editable, and you can add your own roles.
 - **Realtime:** cards move, glow while the agent works on them (labelled with its name, e.g.
   "Claude Code" or "Cursor"), and stream activity as it happens.
 - **Flow view:** the SDLC as a live, animated graph. Agents glide between stages, work items
@@ -111,8 +111,8 @@ Every action on the board is labelled with the agent's name (taken from the MCP 
 | Column | Who works it | What happens |
 |---|---|---|
 | **Backlog** | Project Manager | Refinement: user stories, acceptance criteria, estimates, roles, dependencies, splitting. Ready items are marked *refined*. |
-| **To Do** | the item's assigned role (default Software Engineer) | Sprint backlog. When pulled, the item moves to In Progress. |
-| **In Progress** | the item's assigned role | Design, implementation, DevOps or docs work in the repository. |
+| **To Do** | the item's assigned role (default Senior Developer) | Sprint backlog. When pulled, the item moves to In Progress. |
+| **In Progress** | the item's assigned role | Design, implementation (Backend, Frontend or Senior Developer), DevOps or docs work in the repository. |
 | **Code Review** | Code Reviewer | Approve → QA, or send back with a numbered list of changes. |
 | **QA / Testing** | QA Engineer | Verify every acceptance criterion and the Definition of Done → Done, or send back. |
 | **Needs Human** | you | The agent's questions and items escalated after too many rework cycles. Answer with **Answer & resume**. |

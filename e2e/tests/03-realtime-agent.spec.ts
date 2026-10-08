@@ -46,10 +46,10 @@ test('the board updates live while the agent works through MCP', async ({ page, 
   expect(await mcp(request, token, 'get_next_work')).toContain('Sprint planning');
   await mcp(request, token, 'start_sprint', { goal: 'Customers can buy', items: ['LIVE-2', 'LIVE-3'] });
   await expect(page.getByText('Customers can buy')).toBeVisible();
-  expect(await mcp(request, token, 'get_next_work')).toContain('Software Engineer');
+  expect(await mcp(request, token, 'get_next_work')).toContain('Senior Developer');
   const working = column(page, 'In Progress').getByRole('button', { name: /LIVE-2/ });
   await expect(working).toBeVisible();
-  await expect(working.getByText('Claude Code is working as Software Engineer')).toBeVisible();
+  await expect(working.getByText('Claude Code is working as Senior Developer')).toBeVisible();
   await expect(page.getByText('Claude Code', { exact: true }).first()).toBeVisible();
   await mcp(request, token, 'log_progress', { message: 'Running the unit tests', item: 'LIVE-2' });
   await expect(page.getByText('Running the unit tests').first()).toBeVisible();

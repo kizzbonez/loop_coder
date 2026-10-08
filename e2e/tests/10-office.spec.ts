@@ -33,7 +33,7 @@ test('agents walk into the pixel office, work at their stations and talk', async
   await expect(page.getByRole('heading', { name: /^Team · \d+$/ })).toBeVisible();
   await expect(page.getByText('No agent connected.', { exact: false })).toBeVisible();
   const team = page.locator('section', { has: page.getByRole('heading', { name: /^Team · / }) });
-  await expect(team.getByText('Software Engineer', { exact: true })).toBeVisible();
+  await expect(team.getByText('Senior Developer', { exact: true })).toBeVisible();
   await expect(team.getByText('QA Engineer', { exact: true })).toBeVisible();
   const row = (role: string) => team.getByRole('listitem').filter({ has: page.getByText(role, { exact: true }) });
 
@@ -56,9 +56,9 @@ test('agents walk into the pixel office, work at their stations and talk', async
   // Both agents get to work; each walks to the desk of its role and says what it is doing.
   await mcp(request, claude, 'get_next_work');
   await mcp(request, cursor, 'get_next_work');
-  // Both agents play Software Engineer: the engineer and a colleague work side by side.
-  await expect(row('Software Engineer')).toContainText('Claude Code');
-  await expect(row('Software Engineer')).toContainText('Cursor');
+  // Both agents play Senior Developer: the engineer and a colleague work side by side.
+  await expect(row('Senior Developer')).toContainText('Claude Code');
+  await expect(row('Senior Developer')).toContainText('Cursor');
   await expect(row('Project Manager')).toContainText('At their desk');
   await mcp(request, claude, 'log_progress', { message: 'Building the **search** page', item: 'DESK-1' });
   await expect(chatter).toContainText('Building the search page');
@@ -147,7 +147,7 @@ test('the office replays the history and works on a phone and in dark mode', asy
   await expect(chatter).toContainText('Can guests book without an account?');
   await expect(chatter).not.toContainText('Kickoff time!'); // that was before the sprint
   const team = page.locator('section', { has: page.getByRole('heading', { name: /^Team · / }) });
-  await expect(team.getByRole('listitem').filter({ has: page.getByText('Software Engineer', { exact: true }) })).toContainText('Claude Code');
+  await expect(team.getByRole('listitem').filter({ has: page.getByText('Senior Developer', { exact: true }) })).toContainText('Claude Code');
   await shot(page, '85-office-replay');
 
   await page.emulateMedia({ colorScheme: 'dark' });

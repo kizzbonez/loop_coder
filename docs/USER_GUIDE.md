@@ -47,7 +47,7 @@ throughout the app.
 | **Project** | One product or codebase with its own board, backlog, sprints and code folder. Every project has a short **key** such as `CANDLE`, so items are numbered `CANDLE-1`, `CANDLE-2`, and so on. |
 | **Work item** | A card on the board: an **epic** (a big feature that groups others), **story**, **task**, **bug** or **spike** (a time-boxed investigation). |
 | **Agent** | The AI coding tool connected to the project. One agent plays **every role** in the team. |
-| **Role** | How the agent behaves in a given stage: Project Manager, Software Architect, UI/UX Designer, Software Engineer, Code Reviewer, QA Engineer, DevOps, Security or Technical Writer. |
+| **Role** | How the agent behaves in a given stage: Project Manager, Software Architect, UI/UX Designer, Senior Developer, Backend Developer, Frontend Developer, Code Reviewer, QA Engineer, DevOps, Security or Technical Writer. |
 | **Sprint** | A batch of work the team commits to, with a goal. It ends with a review and a retrospective. |
 | **Definition of Ready / Done** | The checklists an item must meet before it is planned (Ready) and before it is finished (Done). |
 | **Needs Human** | The column where the agent puts items it cannot finish without your decision. |
@@ -227,8 +227,12 @@ would, in this order:
    and conventions into the project notes, and creates the first backlog of epics and stories.
 2. **Sprint work** (pull from the right): it finishes items closest to **Done** before
    starting new ones, and respects dependencies and WIP limits. The role changes with the stage:
-   - **In Progress**: the item's assigned role (Software Engineer by default, or Architect,
-     UI/UX Designer, DevOps, Security, Technical Writer) does the real work in the code folder.
+   - **In Progress**: the item's assigned role does the real work in the code folder. For
+     code, the Project Manager picks the **Backend Developer** (APIs, data, business logic,
+     integrations), the **Frontend Developer** (screens, components, accessibility) or the
+     **Senior Developer** (work that spans both, foundation code, complex changes and hard
+     bugs); other items go to the Architect, UI/UX Designer, DevOps, Security or Technical
+     Writer. An item without a role goes to the Senior Developer.
    - **Code Review**: the Code Reviewer approves it or sends it back with a numbered list of changes.
    - **QA / Testing**: the QA Engineer checks every acceptance criterion and runs the tests,
      then sends the item to Done with a test report, or back for a fix.
@@ -282,7 +286,7 @@ done, and a red **waiting for you** badge when the agent needs an answer.
 - **Top row:** type icon (epic, story, task, bug, spike), the item key, a **draft** label if
   it is not refined yet, priority bars (more bars = higher priority), and the story points.
 - **Title**, then the **epic** it belongs to and any **labels**.
-- **Agent bar:** a glowing border and "*Claude Code is working as Software Engineer*" show
+- **Agent bar:** a glowing border and "*Claude Code is working as Senior Developer*" show
   which agent is working on it and in which role. Several agents can work on one project at
   the same time.
 - **Bottom row:** the role for the current stage, a lock with a number when it waits on
@@ -554,7 +558,7 @@ the audit log and backups. Administrators see **Administration** in the sidebar.
 | **Overview** | Users, workspaces, finished work, agents online, sessions and failed sign-ins in the last 24 hours, recent agent activity and security events. |
 | **Users** | Create users, make or remove administrators, disable or enable accounts, unlock locked accounts, reset passwords, sign a user out everywhere, delete users (their workspaces are transferred to you). |
 | **Workspaces** | Every workspace and project on the server; open or delete them. |
-| **Agent roles** | Edit the instructions of the nine built-in roles, or add your own roles (for example a Data Engineer). |
+| **Agent roles** | Edit the instructions of the eleven built-in roles, or add your own roles (for example a Data Engineer). |
 | **Agent sessions** | Every agent connection: which tool, for which project, on whose behalf, how many tool calls and finished items. |
 | **Tokens** | All access tokens of all users; revoke any of them. |
 | **Settings** | Registration, password and lockout rules, session and token lifetimes, the agent **kill switch**, rework limit, claim timeout. |

@@ -166,7 +166,7 @@ describe('flow replay', () => {
       act('sprint.started', { actorType: 'user', actorName: 'Ada' }),
       act('task.created', { taskId: 'b', toKind: 'backlog' }),
       act('task.moved', { taskId: 'a', fromKind: 'todo', toKind: 'in_progress' }),
-      act('task.started', { taskId: 'a', roleKey: 'software_engineer' }),
+      act('task.started', { taskId: 'a', roleKey: 'senior_developer' }),
       act('task.moved', { taskId: 'a', fromKind: 'in_progress', toKind: 'review' }),
       act('task.moved', { taskId: 'b', fromKind: 'backlog', toKind: 'todo', actorType: 'user', actorName: 'Ada' }),
       act('agent.progress'), // not a flow event
@@ -177,7 +177,7 @@ describe('flow replay', () => {
     expect(snaps).toHaveLength(7);
     expect(Object.fromEntries(snaps[0]!.stageOf)).toEqual({ a: 'todo' }); // b did not exist yet
     expect(Object.fromEntries(snaps[2]!.stageOf)).toEqual({ a: 'todo', b: 'backlog' });
-    expect(snaps[4]!.agents.get('Claude Code')).toMatchObject({ stage: 'in_progress', roleKey: 'software_engineer' });
+    expect(snaps[4]!.agents.get('Claude Code')).toMatchObject({ stage: 'in_progress', roleKey: 'senior_developer' });
     expect(snaps[5]!.agents.get('Claude Code')!.stage).toBe('review');
     expect(Object.fromEntries(snaps[6]!.stageOf)).toEqual({ a: 'review', b: 'todo' }); // matches today
     expect(snaps[6]!.agents.has('Ada')).toBe(false); // people are not agents
@@ -317,7 +317,7 @@ describe('flow replay at scale and ordering', () => {
     const at = '2026-01-01T00:00:00.000Z';
     // The API lists newest first: "started" was recorded after the move in the same millisecond.
     const newestFirst = [
-      act('task.started', { taskId: 'a', createdAt: at, roleKey: 'software_engineer' }),
+      act('task.started', { taskId: 'a', createdAt: at, roleKey: 'senior_developer' }),
       act('task.moved', { taskId: 'a', fromKind: 'todo', toKind: 'in_progress', createdAt: at }),
     ];
     const timeline = buildTimeline(newestFirst);

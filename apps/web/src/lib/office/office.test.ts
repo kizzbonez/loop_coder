@@ -4,7 +4,7 @@ import { drawCat, drawCharacter, lookFor, ROLE_LOOKS, roleOutfit, type Dir } fro
 import { lineFromActivity, lineFromRemark, speech } from './chatter';
 import { chordNotes, compileTrack, noteToMidi, parseDrums, parseVoice, STEPS, tokens, TRACKS } from './music';
 import { COLS, hash, ROWS, safeColor, shade, TILE, WORLD_H, WORLD_W, type Painter } from './pixels';
-import { renderOffice } from './render';
+import { placeNameTags, renderOffice, TAG_LINE } from './render';
 import { DEFAULT_SETTINGS, parseSettings } from './settings';
 import { bubbleSeconds, CONVERSATIONS, labelOf, OfficeSim, rng, tileFeet, WALK_SPEED, type CastRole, type SimAgent } from './sim';
 import { CHAT_CORNERS, FURNITURE, findPath, GRID, HOT_DESKS, OBJECTS, PASTIME_SPOTS, ROLE_STATIONS, STATIONS, stationFor, walkable, zoneTiles } from './world';
@@ -31,7 +31,7 @@ const agent = (over: Partial<SimAgent> = {}): SimAgent => ({
   id: 's1',
   name: 'Claude Code',
   stage: 'in_progress',
-  roleKey: 'software_engineer',
+  roleKey: 'senior_developer',
   roleColor: '#10b981',
   working: true,
   taskKey: 'SHOP-1',
@@ -75,7 +75,7 @@ describe('characters', () => {
   });
 
   it('keeps who someone is across roles, and tells agents apart', () => {
-    const engineer = lookFor('Claude Code', { key: 'software_engineer', color: '#10b981' });
+    const engineer = lookFor('Claude Code', { key: 'senior_developer', color: '#10b981' });
     const reviewer = lookFor('Claude Code', { key: 'code_reviewer', color: '#f59e0b' });
     expect([engineer.skin, engineer.hair, engineer.hairStyle]).toEqual([reviewer.skin, reviewer.hair, reviewer.hairStyle]);
     const names = ['Claude Code', 'Cursor', 'VS Code', 'Codex', 'Windsurf', 'Zed'];
@@ -152,7 +152,7 @@ describe('office map', () => {
     expect(stationFor('testing', null)).toBe('qa');
     expect(stationFor('backlog', 'project_manager')).toBe('pm_desk');
     expect(stationFor('sprint_planning', 'project_manager')).toBe('meeting');
-    expect(stationFor('blocked', 'software_engineer')).toBe('helpdesk');
+    expect(stationFor('blocked', 'senior_developer')).toBe('helpdesk');
     expect(stationFor('done', 'qa_engineer')).toBe('dock');
     expect(stationFor('lounge', null)).toBe('lounge');
   });
@@ -173,7 +173,7 @@ describe('office map', () => {
 describe('office simulation', () => {
   const CAST: CastRole[] = [
     { key: 'project_manager', name: 'Project Manager', color: '#6d4aff' },
-    { key: 'software_engineer', name: 'Software Engineer', color: '#10b981' },
+    { key: 'senior_developer', name: 'Senior Developer', color: '#10b981' },
     { key: 'code_reviewer', name: 'Code Reviewer', color: '#f59e0b' },
     { key: 'qa_engineer', name: 'QA Engineer', color: '#ec4899' },
     { key: 'data_engineer', name: 'Data Engineer', color: '#0ea5e9' },
@@ -189,7 +189,7 @@ describe('office simulation', () => {
   it('has one character per role, each already at their own desk', () => {
     const sim = office();
     expect([...sim.walkers.keys()]).toEqual(CAST.map((r) => `role:${r.key}`));
-    expect(at(role(sim, 'software_engineer'))).toEqual(tileFeet(STATIONS.dev_desk[0]!));
+    expect(at(role(sim, 'senior_developer'))).toEqual(tileFeet(STATIONS.dev_desk[0]!));
     expect(at(role(sim, 'code_reviewer'))).toEqual(tileFeet(STATIONS.review[0]!));
     // A role added later gets a free hot desk.
     expect(role(sim, 'data_engineer').home).toEqual(HOT_DESKS[0]);
@@ -201,10 +201,10 @@ describe('office simulation', () => {
 
   it('lets an agent play a role: the character goes to work, then hands over to the next role', () => {
     const sim = office();
-    sim.sync([agent({ stage: 'blocked', roleKey: 'software_engineer' })]);
-    const engineer = role(sim, 'software_engineer');
+    sim.sync([agent({ stage: 'blocked', roleKey: 'senior_developer' })]);
+    const engineer = role(sim, 'senior_developer');
     expect(engineer.driver).toMatchObject({ agentName: 'Claude Code', taskKey: 'SHOP-1' });
-    expect(labelOf(engineer)).toBe('Software Engineer (Claude Code)');
+    expect(labelOf(engineer)).toBe('Senior Developer (Claude Code)');
     expect(engineer.station).toBe('helpdesk');
     expect(sim.drainCues().map((c) => c.cue)).toContain('poof');
     settle(sim, 20);
@@ -223,21 +223,55 @@ describe('office simulation', () => {
   it('only gives a character to agents that are working', () => {
     const sim = office();
     sim.sync([agent({ working: false })]);
-    expect(role(sim, 'software_engineer').driver).toBeNull();
+    expect(role(sim, 'senior_developer').driver).toBeNull();
+  });
+
+  it('seats the senior, backend and frontend developers at their own workshop desks, and colleagues beside them', () => {
+    const sim = new OfficeSim(1);
+    sim.setCast([
+      ...CAST,
+      { key: 'backend_developer', name: 'Backend Developer', color: '#2563eb' },
+      { key: 'frontend_developer', name: 'Frontend Developer', color: '#f97316' },
+    ]);
+    expect(role(sim, 'senior_developer').home).toEqual(STATIONS.senior_desk[0]);
+    expect(role(sim, 'backend_developer').home).toEqual(STATIONS.backend_desk[0]);
+    expect(role(sim, 'frontend_developer').home).toEqual(STATIONS.frontend_desk[0]);
+    const desks = [STATIONS.senior_desk[0], STATIONS.backend_desk[0], STATIONS.frontend_desk[0]].map((s) => `${s!.x},${s!.y}`);
+    expect(new Set(desks).size).toBe(3);
+    // Each has its own look.
+    const looks = ['senior_developer', 'backend_developer', 'frontend_developer'].map((k) => `${role(sim, k).look.accessory}/${role(sim, k).look.prop}`);
+    expect(new Set(looks).size).toBe(3);
+
+    // Two backend agents: the colleague takes another workshop seat, never the same tile.
+    sim.sync([
+      agent({ roleKey: 'backend_developer', roleColor: '#2563eb' }),
+      agent({ id: 's2', name: 'Cursor', roleKey: 'backend_developer', roleColor: '#2563eb', taskKey: 'SHOP-2' }),
+      agent({ id: 's3', name: 'Codex', roleKey: 'senior_developer', taskKey: 'SHOP-3' }),
+    ]);
+    settle(sim, 30);
+    const backend = role(sim, 'backend_developer');
+    const colleague = sim.walkers.get('role:backend_developer#2')!;
+    expect(backend.station).toBe('backend_desk');
+    expect(backend.spot).toEqual(STATIONS.backend_desk[0]);
+    expect(colleague.spot).not.toEqual(backend.spot);
+    expect(STATIONS.dev_desk.some((s) => s.x === colleague.spot!.x && s.y === colleague.spot!.y)).toBe(true);
+    const seats = [...sim.walkers.values()].filter((w) => w.spot).map((w) => `${w.spot!.x},${w.spot!.y}`);
+    expect(new Set(seats).size).toBe(seats.length);
+    expect(stationFor('in_progress', 'frontend_developer')).toBe('frontend_desk');
   });
 
   it('brings in a colleague when two agents play the same role, and sees them out after', () => {
     const sim = office();
     sim.sync([agent(), agent({ id: 's2', name: 'Cursor', taskKey: 'SHOP-2' })]);
-    const extra = sim.walkers.get('role:software_engineer#2')!;
+    const extra = sim.walkers.get('role:senior_developer#2')!;
     expect(extra.extra).toBe(true);
     expect(extra.driver?.agentName).toBe('Cursor');
-    expect(extra.look).not.toEqual(role(sim, 'software_engineer').look);
-    expect(extra.spot).not.toEqual(role(sim, 'software_engineer').spot);
+    expect(extra.look).not.toEqual(role(sim, 'senior_developer').look);
+    expect(extra.spot).not.toEqual(role(sim, 'senior_developer').spot);
     sim.sync([agent()]);
     expect(extra.leaving).toBe(true);
     settle(sim, 30);
-    expect(sim.walkers.has('role:software_engineer#2')).toBe(false);
+    expect(sim.walkers.has('role:senior_developer#2')).toBe(false);
   });
 
   it('gives an unknown role a temporary character', () => {
@@ -306,15 +340,15 @@ describe('office simulation', () => {
     expect(sim.poke('role:qa_engineer')).toBe('QA Engineer: Sharpening my bug net.');
     sim.sync([agent()]);
     sim.drainCues();
-    expect(sim.poke('role:software_engineer')).toBe("Software Engineer: I'm the Software Engineer. Claude Code has me on SHOP-1.");
-    sim.poke('role:software_engineer');
-    sim.poke('role:software_engineer');
-    expect(role(sim, 'software_engineer').emote?.kind).toBe('sweat');
-    expect(sim.poke('role:software_engineer')).toBe('Software Engineer: Hey! Stop poking me!');
-    expect(role(sim, 'software_engineer').emote?.kind).toBe('anger');
+    expect(sim.poke('role:senior_developer')).toBe("Senior Developer: I'm the Senior Developer. Claude Code has me on SHOP-1.");
+    sim.poke('role:senior_developer');
+    sim.poke('role:senior_developer');
+    expect(role(sim, 'senior_developer').emote?.kind).toBe('sweat');
+    expect(sim.poke('role:senior_developer')).toBe('Senior Developer: Hey! Stop poking me!');
+    expect(role(sim, 'senior_developer').emote?.kind).toBe('anger');
     expect(sim.drainCues().map((c) => c.cue)).toContain('annoyed');
     sim.update(10);
-    expect(sim.poke('role:software_engineer')).toContain("I'm the Software Engineer");
+    expect(sim.poke('role:senior_developer')).toContain("I'm the Senior Developer");
   });
 
   it('says pastime lines when someone is playing or on a coffee break', () => {
@@ -330,19 +364,19 @@ describe('office simulation', () => {
   it('lets the character of the role speak, and brings people to the help desk', () => {
     const sim = office();
     sim.sync([agent()]);
-    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'software_engineer' }, 'Writing the tests')).toBe('role:software_engineer');
+    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'senior_developer' }, 'Writing the tests')).toBe('role:senior_developer');
     // A line said in another role comes from that role's character, even if nobody plays it now.
     expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'code_reviewer' }, 'Approved')).toBe('role:code_reviewer');
     // Without a role, the character the agent is playing speaks.
-    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: null }, 'Hmm')).toBe('role:software_engineer');
+    expect(sim.say({ name: 'Claude Code', kind: 'agent', roleKey: null }, 'Hmm')).toBe('role:senior_developer');
     expect(sim.say({ name: 'Nobody', kind: 'agent', roleKey: null }, 'hello')).toBeNull();
     // A question from a role nobody is playing: that character waits at the help desk.
     sim.say({ name: 'Cursor', kind: 'agent', roleKey: 'qa_engineer' }, 'Which browsers?', 'question');
     expect(role(sim, 'qa_engineer').pastime?.kind).toBe('help');
     expect(role(sim, 'qa_engineer').emote?.kind).toBe('question');
     expect(sim.poke('role:qa_engineer')).toBe('QA Engineer: I asked you something! Check Needs Human.');
-    sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'software_engineer' }, 'Which country?', 'question');
-    expect(role(sim, 'software_engineer').emote?.kind).toBe('question');
+    sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'senior_developer' }, 'Which country?', 'question');
+    expect(role(sim, 'senior_developer').emote?.kind).toBe('question');
 
     const id = sim.say({ name: 'Ada', kind: 'user' }, 'Philippines only', 'answer')!;
     expect(id).toBe('human:Ada');
@@ -357,7 +391,7 @@ describe('office simulation', () => {
   it('walks at a steady pace', () => {
     const sim = office();
     sim.sync([agent({ stage: 'done' })]);
-    const w = role(sim, 'software_engineer');
+    const w = role(sim, 'senior_developer');
     const start = at(w);
     sim.update(0.5);
     expect(Math.abs(w.x - start.x) + Math.abs(w.y - start.y)).toBeCloseTo(WALK_SPEED * 0.5, 0);
@@ -471,7 +505,7 @@ describe('office chatter', () => {
     actorType: 'agent',
     actorUserId: 'u',
     actorName: 'Claude Code',
-    roleKey: 'software_engineer',
+    roleKey: 'senior_developer',
     action: 'task.moved',
     message: '',
     fromKind: null,
@@ -535,18 +569,50 @@ describe('office renderer', () => {
     sim.stats = { todo: 2, done: 3, blocked: 1, in_progress: 1 };
     sim.setCast([
       { key: 'project_manager', name: 'Project Manager', color: '#6d4aff' },
-      { key: 'software_engineer', name: 'Software Engineer', color: '#10b981' },
+      { key: 'senior_developer', name: 'Senior Developer', color: '#10b981' },
     ]);
     sim.sync([agent(), agent({ id: 's2', name: 'Cursor', stage: 'sprint_planning', roleKey: 'project_manager' })]);
     settle(sim, 5);
-    sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'software_engineer' }, 'A rather long sentence that has to wrap over several lines inside the speech bubble to fit');
+    sim.say({ name: 'Claude Code', kind: 'agent', roleKey: 'senior_developer' }, 'A rather long sentence that has to wrap over several lines inside the speech bubble to fit');
     sim.say({ name: 'Ada', kind: 'user' }, 'Sounds good');
     sim.poke('coffee');
     sim.update(1);
     const { painter, rects, texts } = fakePainter(2);
     renderOffice(painter, sim, { names: true, focusId: 'duck', hoverId: 's1', textSpeed: 'instant' });
     expect(rects.length).toBeGreaterThan(1000);
-    expect(texts).toEqual(expect.arrayContaining(['Software Engineer', 'Project Manager', 'Claude Code', 'Cursor', 'Ada (you)', 'LOOP CODER HQ', 'BACKLOG']));
+    expect(texts).toEqual(expect.arrayContaining(['Senior Developer', 'Project Manager', 'Claude Code', 'Cursor', 'Ada (you)', 'LOOP CODER HQ', 'BACKLOG']));
     expect(texts.some((t) => t.startsWith('A rather long'))).toBe(true);
+  });
+});
+
+describe('name tags', () => {
+  const width = (text: string) => text.length * 4;
+  const tag = (name: string, x: number, agent?: string) => ({
+    lines: [{ text: name, style: 'idle' as const }, ...(agent ? [{ text: agent, style: 'agent' as const }] : [])],
+    x,
+    y: 100,
+  });
+
+  it('stay where they belong when there is room', () => {
+    const out = placeNameTags([tag('PM', 10), tag('QA', 100)], width);
+    expect(out.map((t) => t.y)).toEqual([100, 100]);
+  });
+
+  it('drop a line instead of covering a neighbour, keeping the agent under its role', () => {
+    const out = placeNameTags([tag('Frontend Developer', 100, 'Claude Code'), tag('Software Architect', 130)], width);
+    const frontend = out.find((t) => t.text === 'Frontend Developer')!;
+    const agent = out.find((t) => t.text === 'Claude Code')!;
+    const architect = out.find((t) => t.text === 'Software Architect')!;
+    expect(frontend.y).toBe(100);
+    expect(agent.y).toBe(100 + TAG_LINE - 1);
+    expect(architect.y).toBe(100 + 2 * TAG_LINE); // below both lines of its neighbour
+    // No two tags cover each other.
+    const boxes = out.map((t) => ({ l: t.x - width(t.text) / 2, r: t.x + width(t.text) / 2, t: t.y, b: t.y + 8 }));
+    for (const [i, a] of boxes.entries()) for (const b of boxes.slice(i + 1)) expect(a.r <= b.l || a.l >= b.r || a.b <= b.t || a.t >= b.b).toBe(true);
+  });
+
+  it('drops at most two lines', () => {
+    const out = placeNameTags([tag('Aaaaaaaaaa', 100), tag('Bbbbbbbbbb', 101), tag('Cccccccccc', 102), tag('Dddddddddd', 103)], width);
+    expect(Math.max(...out.map((t) => t.y))).toBe(100 + 2 * TAG_LINE);
   });
 });

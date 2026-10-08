@@ -132,7 +132,7 @@ ${notDone || '_Everything was completed._'}
 ${LOOP_FOOTER}`;
 }
 
-export const WORK_LOOP_PROMPT = (projectKey: string, workspacePath: string) => `You are the autonomous delivery team for the Loop Coder project **${projectKey}**: one agent playing every Scrum/SDLC role (Project Manager, Architect, UI/UX Designer, Software Engineer, Code Reviewer, QA, DevOps, Security, Tech Writer).
+export const WORK_LOOP_PROMPT = (projectKey: string, workspacePath: string) => `You are the autonomous delivery team for the Loop Coder project **${projectKey}**: one agent playing every Scrum/SDLC role (Project Manager, Architect, UI/UX Designer, Senior, Backend and Frontend Developer, Code Reviewer, QA, DevOps, Security, Tech Writer).
 
 Work through the board using the \`loopcoder\` MCP tools:
 1. Call \`get_next_work\` with project "${projectKey}".

@@ -61,6 +61,8 @@ export interface FlowState {
 
 /** The board as it was when a replay was loaded; later live changes do not shift the replay. */
 interface Frozen {
+  /** The segment that was asked for (the server answers an unknown one with the whole project). */
+  requested: string;
   data: ReplayDTO;
   tasks: TaskDTO[];
   now: FlowNow;
@@ -89,13 +91,15 @@ export function useFlowState({ project, tasks, roles }: FlowSource, options: { r
   useEffect(() => {
     if (!options.replay) setFrozen(null);
     else if (replayData.data && frozen?.data !== replayData.data) {
-      setFrozen({ data: replayData.data, tasks, now: { kickoffDone, sprintActive }, loadedAt: Date.now() });
+      setFrozen({ requested: segmentId, data: replayData.data, tasks, now: { kickoffDone, sprintActive }, loadedAt: Date.now() });
     }
-  }, [options.replay, replayData.data, frozen, tasks, kickoffDone, sprintActive]);
+  }, [options.replay, replayData.data, frozen, tasks, kickoffDone, sprintActive, segmentId]);
 
+  // Never show one segment under another's name: until the asked-for segment is loaded, it is loading.
+  const current = frozen?.requested === segmentId ? frozen : null;
   const model = useMemo(
-    () => (options.replay && frozen ? buildReplayModel(frozen.data, frozen.tasks, (id) => columnsById.get(id)?.kind, frozen.now, frozen.loadedAt) : null),
-    [options.replay, frozen, columnsById],
+    () => (options.replay && current ? buildReplayModel(current.data, current.tasks, (id) => columnsById.get(id)?.kind, current.now, current.loadedAt) : null),
+    [options.replay, current, columnsById],
   );
   const journey = useMemo(() => (model && focusTaskId ? journeyOf(model.timeline, focusTaskId) : []), [model, focusTaskId]);
   const journeyTimes = useMemo(() => journey.map((s) => Date.parse(s.activity.createdAt)), [journey]);
@@ -109,7 +113,7 @@ export function useFlowState({ project, tasks, roles }: FlowSource, options: { r
         ? { start: journeyTimes[0]! - 1000, end: journeyTimes.at(-1)!, marks: journeyTimes }
         : { start: model.start, end: model.start, marks: [] }
       : { start: model.start, end: model.end, marks: model.marks };
-  const tape = options.replay ? `${segmentId}:${focusTaskId ?? ''}:${model ? frozen?.loadedAt : 'loading'}` : 'live';
+  const tape = options.replay ? `${segmentId}:${focusTaskId ?? ''}:${model ? current?.loadedAt : 'loading'}` : 'live';
   const player = useTimeReplay(span.start, span.end, span.marks, tape);
 
   // --- Live animations -----------------------------------------------------------
@@ -145,15 +149,15 @@ export function useFlowState({ project, tasks, roles }: FlowSource, options: { r
       replay: {
         ...player,
         at: model ? new Date(t).toISOString() : null,
-        segments: frozen?.data.segments ?? [],
+        segments: current?.data.segments ?? [],
         segment: model?.segment ?? null,
         focusTaskId,
         journey,
         journeyEdges,
         reached: countUpTo(journeyTimes, t),
         exact: frame?.exact ?? false,
-        presenceSince: frozen?.data.presenceSince ?? null,
-        truncated: frozen?.data.truncated ?? false,
+        presenceSince: current?.data.presenceSince ?? null,
+        truncated: current?.data.truncated ?? false,
         events: model?.events ?? [],
         remarks: model?.remarks ?? [],
       },

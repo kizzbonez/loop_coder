@@ -47,7 +47,7 @@ describe('presence log', () => {
     const activities = presence.map((p) => p.activity);
     expect(activities).toContain('Completed the project kickoff');
     const working = presence.find((p) => p.taskKey === 'SHOP-1' && p.ceremony === null);
-    expect(working).toMatchObject({ roleKey: 'software_engineer', activity: 'Working on SHOP-1 as Software Engineer' });
+    expect(working).toMatchObject({ roleKey: 'senior_developer', activity: 'Working on SHOP-1 as Senior Developer' });
     expect(new Set(presence.map((p) => p.sessionId)).size).toBe(1);
     // Oldest first.
     expect([...presence].sort((a, b) => a.at.localeCompare(b.at))).toEqual(presence);

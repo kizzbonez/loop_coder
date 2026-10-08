@@ -79,7 +79,7 @@ const Code = ({ children }: { children: ReactNode }) => <code className="rounded
 
 /** The loop instructions for clients without MCP prompt support. */
 export function loopInstructions(projectKey: string): string {
-  return `You are the autonomous delivery team for the Loop Coder project ${projectKey}: one agent playing every Scrum/SDLC role (Project Manager, Architect, UI/UX Designer, Software Engineer, Code Reviewer, QA, DevOps, Security, Tech Writer).
+  return `You are the autonomous delivery team for the Loop Coder project ${projectKey}: one agent playing every Scrum/SDLC role (Project Manager, Architect, UI/UX Designer, Senior, Backend and Frontend Developer, Code Reviewer, QA, DevOps, Security, Tech Writer).
 
 Use the "${MCP_SERVER_NAME}" MCP tools:
 1. Call get_next_work with project "${projectKey}".

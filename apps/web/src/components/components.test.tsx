@@ -37,8 +37,8 @@ const task: TaskDTO = {
 };
 const role: AgentRoleDTO = {
   id: 'r',
-  key: 'software_engineer',
-  name: 'Software Engineer',
+  key: 'senior_developer',
+  name: 'Senior Developer',
   description: '',
   instructions: '',
   color: '#22c55e',
@@ -56,20 +56,20 @@ describe('TaskCard', () => {
     expect(screen.getByText('payments')).toBeTruthy();
     expect(screen.getByTitle(/rework 2/)).toBeTruthy();
     expect(screen.getByTitle('3 remarks')).toBeTruthy();
-    expect(screen.getByText('Software Engineer')).toBeTruthy();
+    expect(screen.getByText('Senior Developer')).toBeTruthy();
   });
 
   it('highlights items an agent is working on, naming the agent', () => {
-    const claim = { by: 'token:x', agentName: 'Claude Code', roleKey: 'software_engineer', at: '', expiresAt: '' };
+    const claim = { by: 'token:x', agentName: 'Claude Code', roleKey: 'senior_developer', at: '', expiresAt: '' };
     const { container } = render(<TaskCard task={{ ...task, claim }} role={role} blockedBy={[]} onOpen={() => undefined} />);
-    expect(screen.getByText(/Claude Code is working as Software Engineer/)).toBeTruthy();
+    expect(screen.getByText(/Claude Code is working as Senior Developer/)).toBeTruthy();
     expect(container.querySelector('.agent-working')).not.toBeNull();
   });
 
   it('works for any MCP client, not just Claude', () => {
-    const claim = { by: 'token:y', agentName: 'Cursor', roleKey: 'software_engineer', at: '', expiresAt: '' };
+    const claim = { by: 'token:y', agentName: 'Cursor', roleKey: 'senior_developer', at: '', expiresAt: '' };
     render(<TaskCard task={{ ...task, claim }} role={role} blockedBy={[]} onOpen={() => undefined} />);
-    expect(screen.getByText(/Cursor is working as Software Engineer/)).toBeTruthy();
+    expect(screen.getByText(/Cursor is working as Senior Developer/)).toBeTruthy();
     expect(screen.queryByText(/Claude/)).toBeNull();
   });
 

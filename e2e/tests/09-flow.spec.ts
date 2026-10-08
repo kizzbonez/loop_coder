@@ -54,7 +54,7 @@ test('the Flow tab shows agents moving work through the SDLC live', async ({ pag
   await mcp(request, claude, 'get_next_work');
   await mcp(request, cursor, 'get_next_work');
   await expect(stage(page, /^In Progress: 2 items, an agent is working here/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Cursor · Software Engineer, on FLOW-/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Cursor · Senior Developer, on FLOW-/ })).toBeVisible();
 
   // Review requests changes once, then QA passes it.
   await mcp(request, claude, 'move_work_item', { item: 'FLOW-1', to: 'review', remark: 'Built the catalogue' });

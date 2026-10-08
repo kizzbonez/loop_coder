@@ -76,7 +76,9 @@ const IDLE_LINES: Readonly<Record<string, readonly string[]>> = {
   project_manager: ['Grooming the backlog in my head.', 'Nothing to plan right now.'],
   architect: ['Thinking in boxes and arrows.', 'Sketching the next big refactor.'],
   ui_designer: ['Picking a nicer shade of purple.', 'Sketching ideas while I wait.'],
-  software_engineer: ['Refactoring in my head.', 'Waiting for the next ticket.'],
+  senior_developer: ['Ready for the tricky ones.', 'Refactoring in my head.'],
+  backend_developer: ['Tuning a query in my head.', 'The APIs are quiet right now.'],
+  frontend_developer: ['Nudging pixels while I wait.', 'Checking the layout on my phone.'],
   code_reviewer: ['Nothing to review yet.', 'My red pen is ready.'],
   qa_engineer: ['No bugs to hunt right now.', 'Sharpening my bug net.'],
   devops_engineer: ['Watching the dashboards.', 'All pipelines are green.'],
@@ -325,7 +327,14 @@ export class OfficeSim {
     const meeting = this.inMeeting;
     const free = (spots: readonly Spot[]) => spots.find((s) => !taken.has(tile(s))) ?? spots[0]!;
     const targets = new Map<Walker, { spot: Spot; station: StationId | null }>();
-    const homeStation = (w: Walker) => (w.home ? (Object.keys(STATIONS) as StationId[]).find((id) => STATIONS[id].some((s) => s.x === w.home!.x && s.y === w.home!.y)) ?? null : null);
+    const homeStation = (w: Walker): StationId | null => {
+      if (!w.home) return null;
+      const at = (id: StationId) => STATIONS[id].some((s) => s.x === w.home!.x && s.y === w.home!.y);
+      // The role's own desk first: several stations can share a seat (e.g. the workshop desks).
+      const own = w.roleKey ? ROLE_STATIONS[w.roleKey] : undefined;
+      if (own && at(own)) return own;
+      return (Object.keys(STATIONS) as StationId[]).find(at) ?? null;
+    };
 
     // During a ceremony nobody plays games: everyone without work goes to the meeting.
     if (meeting) for (const w of cast) w.pastime = null;

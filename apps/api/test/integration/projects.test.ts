@@ -30,8 +30,8 @@ describe('projects', () => {
     const roleKey = (id: string | null) => roles.find((r) => r.id === id)?.key ?? null;
     expect(project.columns.map((c) => roleKey(c.agentRoleId))).toEqual([
       'project_manager',
-      'software_engineer',
-      'software_engineer',
+      'senior_developer',
+      'senior_developer',
       'code_reviewer',
       'qa_engineer',
       null,

@@ -4,7 +4,7 @@ import { drawCat, drawCharacter } from './characters';
 import { frame, hash, PALETTE, px, ROWS, shade, TILE, WORLD_H, WORLD_W, type Painter } from './pixels';
 import { TEXT_CPS } from './settings';
 import type { Bubble, Emote, OfficeSim, Walker } from './sim';
-import { FURNITURE, ZONES, type Furniture } from './world';
+import { FURNITURE, WORKSHOP_DESKS, ZONES, type Furniture, type StationId } from './world';
 
 export const FONT_FAMILY = '"Pixelify Sans", ui-monospace, monospace';
 
@@ -42,15 +42,18 @@ export function renderOffice(p: Painter, sim: OfficeSim, opts: RenderOptions): v
 
   drawFrontWall(p);
 
+  const tags: NameTag[] = [];
   for (const w of sim.walkers.values()) {
     if (w.emote) drawEmote(p, w.emote.kind, w.x, w.y - 30, sim.now);
     if (!opts.names) continue;
-    if (w.kind === 'human') drawNameTag(p, `${w.name} (you)`, w.x, w.y + 3, 'human');
+    if (w.kind === 'human') tags.push({ lines: [{ text: `${w.name} (you)`, style: 'human' }], x: w.x, y: w.y + 3 });
     else {
-      drawNameTag(p, w.name, w.x, w.y + 3, w.driver ? 'active' : 'idle');
-      if (w.driver) drawNameTag(p, w.driver.agentName, w.x, w.y + 11, 'agent');
+      const lines: NameTag['lines'] = [{ text: w.name, style: w.driver ? 'active' : 'idle' }];
+      if (w.driver) lines.push({ text: w.driver.agentName, style: 'agent' });
+      tags.push({ lines, x: w.x, y: w.y + 3 });
     }
   }
+  for (const t of placeNameTags(tags, (s) => measure(p, s, TAG_SIZE) + 4)) drawNameTag(p, t.text, t.x, t.y, t.style);
   if (sim.cat.emote) drawEmote(p, sim.cat.emote.kind, sim.cat.x + 3, sim.cat.y - 13, sim.now);
 
   const bubbles = [...sim.bubbles.values()].sort((a, b) => (sim.anchorOf(a.ownerId)?.y ?? 0) - (sim.anchorOf(b.ownerId)?.y ?? 0));
@@ -192,7 +195,8 @@ function objectActive(sim: OfficeSim, id: string): boolean {
 function stationBusy(sim: OfficeSim, f: Furniture): boolean {
   if (!f.station) return false;
   const cx = (f.x + f.w / 2) * TILE;
-  return [...sim.walkers.values()].some((w) => w.station === f.station && w.working && w.path.length === 0 && Math.abs(w.x - cx) <= TILE * 1.5);
+  const here = (s: StationId | null) => s === f.station || (s === 'dev_desk' && WORKSHOP_DESKS.has(f.station!));
+  return [...sim.walkers.values()].some((w) => here(w.station) && w.working && w.path.length === 0 && Math.abs(w.x - cx) <= TILE * 1.5);
 }
 
 function drawFurniture(p: Painter, f: Furniture, sim: OfficeSim): void {
@@ -521,11 +525,48 @@ const TAG_COLORS = {
   human: 'rgba(46, 125, 72, 0.85)',
 } as const;
 
+const TAG_SIZE = 5;
+/** Height of one tag line, gap included. */
+export const TAG_LINE = 9;
+
+export interface NameTag {
+  /** The role's name, then the agent playing it (if any), one under the other. */
+  lines: Array<{ text: string; style: keyof typeof TAG_COLORS }>;
+  x: number;
+  y: number;
+}
+
+/**
+ * Lay name tags out so they never cover each other: each tag goes where it belongs, or as many
+ * lines lower as needed (at most two) when a tag placed before it is in the way. Lines of one tag
+ * stay together. Returns every line to draw.
+ */
+export function placeNameTags(tags: NameTag[], widthOf: (text: string) => number): Array<{ text: string; x: number; y: number; style: keyof typeof TAG_COLORS }> {
+  const placed: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+  const out: Array<{ text: string; x: number; y: number; style: keyof typeof TAG_COLORS }> = [];
+  const height = TAG_SIZE + 3;
+  for (const tag of [...tags].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const boxes = (drop: number) =>
+      tag.lines.map((l, i) => {
+        const w = widthOf(l.text);
+        const top = tag.y + drop + i * (TAG_LINE - 1);
+        return { left: tag.x - w / 2, right: tag.x + w / 2, top, bottom: top + height };
+      });
+    const clear = (bs: ReturnType<typeof boxes>) => bs.every((b) => placed.every((o) => b.right <= o.left || b.left >= o.right || b.bottom <= o.top || b.top >= o.bottom));
+    let drop = 0;
+    while (drop < 2 * TAG_LINE && !clear(boxes(drop))) drop += TAG_LINE;
+    boxes(drop).forEach((b, i) => {
+      placed.push(b);
+      out.push({ text: tag.lines[i]!.text, x: tag.x, y: b.top, style: tag.lines[i]!.style });
+    });
+  }
+  return out;
+}
+
 function drawNameTag(p: Painter, name: string, x: number, y: number, style: keyof typeof TAG_COLORS): void {
-  const size = 5;
-  const width = measure(p, name, size) + 4;
-  px(p, x - width / 2, y, width, size + 3, TAG_COLORS[style]);
-  text(p, name, x, y + size + 1, size, PALETTE.white, 'center');
+  const width = measure(p, name, TAG_SIZE) + 4;
+  px(p, x - width / 2, y, width, TAG_SIZE + 3, TAG_COLORS[style]);
+  text(p, name, x, y + TAG_SIZE + 1, TAG_SIZE, PALETTE.white, 'center');
 }
 
 function drawCursor(p: Painter, x: number, y: number, t: number): void {

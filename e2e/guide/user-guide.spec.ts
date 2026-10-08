@@ -244,7 +244,7 @@ test('capture the user guide screenshots', async ({ page, browser, request }) =>
   // ---------------------------------------------------------------- 4. Board, items, views
   await page.goto(`/p/${projectId}/board`);
   await expect(page.getByText('Cursor is working as QA Engineer')).toBeVisible();
-  await expect(page.getByText('Claude Code is working as Software Engineer')).toBeVisible();
+  await expect(page.getByText('Claude Code is working as Senior Developer')).toBeVisible();
   await snap(page, '12-board');
   await snapEl(page.getByRole('region', { name: 'In Progress', exact: true }).getByRole('button', { name: /CANDLE-8/ }), '13-card-working');
   await snapEl(page.getByRole('button', { name: 'Pause agent' }).locator('..'), '14-agent-status');

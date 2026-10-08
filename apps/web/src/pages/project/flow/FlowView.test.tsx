@@ -34,7 +34,7 @@ const columns: ColumnDTO[] = KINDS.map((kind, i) => ({
 const roles: AgentRoleDTO[] = [
   { id: 'r-pm', key: 'project_manager', name: 'Project Manager', description: '', instructions: '', color: '#6d4aff', isSystem: true, enabled: true, assignable: false },
   { id: 'r-rev', key: 'code_reviewer', name: 'Code Reviewer', description: '', instructions: '', color: '#f59e0b', isSystem: true, enabled: true, assignable: false },
-  { id: 'r-eng', key: 'software_engineer', name: 'Software Engineer', description: '', instructions: '', color: '#10b981', isSystem: true, enabled: true, assignable: true },
+  { id: 'r-eng', key: 'senior_developer', name: 'Senior Developer', description: '', instructions: '', color: '#10b981', isSystem: true, enabled: true, assignable: true },
 ];
 const task = (id: string, key: string, kind: ColumnKind, title: string): TaskDTO =>
   ({ id, projectId: P, key, number: 1, type: 'story', title, columnId: `c-${kind}`, position: 1, storyPoints: 3, dependsOn: [], claim: null, labels: [] }) as unknown as TaskDTO;
@@ -61,8 +61,8 @@ const activity = (over: Partial<ActivityDTO>): ActivityDTO => ({
 
 // Newest first, as the API returns it: SHOP-1 went To Do → In Progress → Code Review.
 const history = [
-  activity({ taskId: 't1', taskKey: 'SHOP-1', fromKind: 'todo', toKind: 'in_progress', roleKey: 'software_engineer', message: 'moved' }),
-  activity({ taskId: 't1', taskKey: 'SHOP-1', fromKind: 'in_progress', toKind: 'review', roleKey: 'software_engineer', message: 'moved' }),
+  activity({ taskId: 't1', taskKey: 'SHOP-1', fromKind: 'todo', toKind: 'in_progress', roleKey: 'senior_developer', message: 'moved' }),
+  activity({ taskId: 't1', taskKey: 'SHOP-1', fromKind: 'in_progress', toKind: 'review', roleKey: 'senior_developer', message: 'moved' }),
 ].reverse();
 
 // What the server records for a replay: the moves above, and where the agent was (presence log).
@@ -88,7 +88,7 @@ const replayData: ReplayDTO = {
   events: history,
   remarks: [],
   presence: [
-    presenceRow('2026-01-01T10:00:01.000Z', 'software_engineer', 'Working on SHOP-1 as Software Engineer'),
+    presenceRow('2026-01-01T10:00:01.000Z', 'senior_developer', 'Working on SHOP-1 as Senior Developer'),
     presenceRow('2026-01-01T10:00:02.000Z', 'code_reviewer', 'Reviewing SHOP-1'),
   ],
   presenceSince: '2026-01-01T10:00:01.000Z',
@@ -148,6 +148,7 @@ beforeEach(() => {
   qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
   qc.setQueryData(keys.flow(P), history);
   qc.setQueryData(keys.replay(P, 'all'), replayData);
+  qc.setQueryData(keys.replay(P, 'sprint-1'), { ...replayData, segment: segments[2]! });
 });
 const position = () => Number((screen.getByRole('slider', { name: 'Replay position' }) as HTMLInputElement).value);
 
@@ -206,10 +207,10 @@ describe('FlowView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next moment' }));
     expect(position()).toBe(Date.parse('2026-01-01T10:00:01Z'));
     expect(screen.getByRole('button', { name: /^In Progress: 1 item/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Claude Code · Software Engineer, on SHOP-1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Claude Code · Senior Developer, on SHOP-1' })).toBeTruthy();
     expect(screen.queryByText(/inferred from their actions/)).toBeNull();
     const agents = screen.getByRole('heading', { name: 'Agents at this moment' }).closest('section')!;
-    expect(within(agents).getByText('“Working on SHOP-1 as Software Engineer”')).toBeTruthy();
+    expect(within(agents).getByText('“Working on SHOP-1 as Senior Developer”')).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'Next moment' }));
     expect(screen.getByRole('button', { name: /^Code Review: 1 item/ })).toBeTruthy();
@@ -226,6 +227,10 @@ describe('FlowView', () => {
     expect([...what.options].map((o) => o.textContent)).toEqual(['Whole project', 'Kickoff', 'Sprint 1 (ongoing)']);
     await userEvent.selectOptions(what, 'sprint-1');
     expect(screen.getByTestId('where').textContent).toContain('replay=sprint-1');
+    // The sprint plays from its own start (10:00), with the board as it was then.
+    await waitFor(() => expect(position()).toBe(Date.parse('2026-01-01T10:00:00Z')));
+    expect(screen.getByText('“Checkout works”')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'To Do: 1 item' })).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: /Back to live/ }));
     expect(screen.getByTestId('where').textContent).not.toContain('replay');

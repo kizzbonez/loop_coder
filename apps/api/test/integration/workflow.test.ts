@@ -54,7 +54,7 @@ async function kickoff(): Promise<void> {
         acceptance_criteria: AC,
         refined: true,
         depends_on: ['signup'],
-        assigned_role: 'software_engineer',
+        assigned_role: 'senior_developer',
       },
       { title: 'Dark mode idea', priority: 'low' },
     ],
@@ -88,7 +88,7 @@ describe('kickoff', () => {
     await mcp.ok('get_next_work', P);
     const res = await mcp.call('create_work_items', { ...P, items: [{ title: 'x', assigned_role: 'wizard' }] });
     expect(res.isError).toBe(true);
-    expect(res.text).toMatch(/software_engineer/);
+    expect(res.text).toMatch(/senior_developer/);
   });
 });
 
@@ -120,10 +120,10 @@ describe('the Scrum loop', () => {
     // SHOP-3 depends on SHOP-2, so SHOP-2 comes first and is pulled into In Progress.
     work = await mcp.ok('get_next_work', P);
     expect(work).toContain('# SHOP-2');
-    expect(work).toContain('Software Engineer');
+    expect(work).toContain('Senior Developer');
     let signup = await task('SHOP-2');
     expect(signup.columnId).toBe(columnId(project, 'in_progress'));
-    expect(signup.claim).toMatchObject({ roleKey: 'software_engineer' });
+    expect(signup.claim).toMatchObject({ roleKey: 'senior_developer' });
     await mcp.ok('log_progress', { ...P, item: 'SHOP-2', message: 'Writing the sign-up form' });
     await mcp.ok('move_work_item', { item: 'SHOP-2', to: 'review', remark: 'Implemented form + tests' });
 
@@ -138,7 +138,7 @@ describe('the Scrum loop', () => {
 
     // Rework, then approval, then QA.
     work = await mcp.ok('get_next_work', P);
-    expect(work).toContain('Software Engineer');
+    expect(work).toContain('Senior Developer');
     expect(work).toContain('Missing validation');
     await mcp.ok('move_work_item', { item: 'SHOP-2', to: 'review', remark: 'Added validation' });
     await mcp.ok('get_next_work', P);

@@ -68,9 +68,9 @@ export const FURNITURE: readonly Furniture[] = [
   { id: 'meeting-table', kind: 'table', x: 11, y: 4, w: 5, h: 2 },
   { id: 'help-counter', kind: 'counter', x: 25, y: 4, w: 5, h: 1 },
   { id: 'help-plant', kind: 'plant', x: 30, y: 7, w: 1, h: 1 },
-  { id: 'dev-desk-1', kind: 'desk', x: 2, y: 10, w: 2, h: 1, station: 'dev_desk' },
-  { id: 'dev-desk-2', kind: 'desk', x: 5, y: 10, w: 2, h: 1, station: 'dev_desk' },
-  { id: 'dev-desk-3', kind: 'desk', x: 8, y: 10, w: 2, h: 1, station: 'dev_desk' },
+  { id: 'dev-desk-1', kind: 'desk', x: 2, y: 10, w: 2, h: 1, station: 'senior_desk' },
+  { id: 'dev-desk-2', kind: 'desk', x: 5, y: 10, w: 2, h: 1, station: 'backend_desk' },
+  { id: 'dev-desk-3', kind: 'desk', x: 8, y: 10, w: 2, h: 1, station: 'frontend_desk' },
   { id: 'whiteboard', kind: 'whiteboardStand', x: 11, y: 10, w: 2, h: 1 },
   { id: 'easel', kind: 'easel', x: 14, y: 10, w: 1, h: 1 },
   { id: 'servers', kind: 'server', x: 17, y: 9, w: 2, h: 2 },
@@ -98,6 +98,9 @@ export type StationId =
   | 'kanban'
   | 'helpdesk'
   | 'dev_desk'
+  | 'senior_desk'
+  | 'backend_desk'
+  | 'frontend_desk'
   | 'whiteboard'
   | 'easel'
   | 'server'
@@ -131,7 +134,12 @@ export const STATIONS: Readonly<Record<StationId, readonly Spot[]>> = {
   ],
   kanban: row(2, [20, 21, 19, 22], 'up'),
   helpdesk: row(5, [26, 28, 27], 'up'),
+  // The workshop: one desk per developer role, its own seats first and the rest of the workshop
+  // when they are taken (a colleague in the same role); dev_desk is any seat there.
   dev_desk: row(11, [2, 5, 8, 3, 6, 9], 'up'),
+  senior_desk: row(11, [2, 3, 5, 6, 8, 9], 'up'),
+  backend_desk: row(11, [5, 6, 2, 3, 8, 9], 'up'),
+  frontend_desk: row(11, [8, 9, 5, 6, 2, 3], 'up'),
   whiteboard: row(11, [11, 12], 'up'),
   easel: row(11, [14, 15], 'up'),
   server: row(11, [17, 18], 'up'),
@@ -178,7 +186,7 @@ export const CHAT_CORNERS: ReadonlyArray<readonly Spot[]> = [
 
 /** Free desks for roles without a workplace of their own (roles added later). */
 export const HOT_DESKS: readonly Spot[] = [
-  ...row(11, [5, 8, 3, 6, 9], 'up'),
+  ...row(11, [3, 6, 9], 'up'),
   { x: 6, y: 6, face: 'up' },
   { x: 3, y: 6, face: 'up' },
   ...row(11, [24, 21, 18, 28, 15, 12], 'up'),
@@ -192,7 +200,9 @@ export const ROLE_STATIONS: Readonly<Record<string, StationId>> = {
   project_manager: 'pm_desk',
   architect: 'whiteboard',
   ui_designer: 'easel',
-  software_engineer: 'dev_desk',
+  senior_developer: 'senior_desk',
+  backend_developer: 'backend_desk',
+  frontend_developer: 'frontend_desk',
   code_reviewer: 'review',
   qa_engineer: 'qa',
   devops_engineer: 'server',
@@ -213,6 +223,9 @@ const STAGE_STATIONS: Record<StageId, StationId> = {
   blocked: 'helpdesk',
   lounge: 'lounge',
 };
+
+/** The workshop desks: someone working at any workshop seat (dev_desk) counts for each of them. */
+export const WORKSHOP_DESKS: ReadonlySet<StationId> = new Set(['senior_desk', 'backend_desk', 'frontend_desk']);
 
 /** The station for an agent in a stage playing a role. Work stages use the role's own desk. */
 export function stationFor(stage: StageId, roleKey: string | null): StationId {

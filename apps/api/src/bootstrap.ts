@@ -2,6 +2,7 @@ import { runMigrations } from './db/migrate';
 import { announceSetupIfRequired } from './modules/auth/auth.service';
 import { purgeExpiredSessions } from './modules/auth/sessions.service';
 import { seedDefaultRoles } from './modules/roles/roles.service';
+import { upgradeLegacyRoles } from './modules/roles/roles.upgrade';
 import { ensureDefaultSettings } from './modules/settings/settings.service';
 
 /**
@@ -11,6 +12,7 @@ import { ensureDefaultSettings } from './modules/settings/settings.service';
 export function bootstrap(): void {
   runMigrations();
   ensureDefaultSettings();
+  upgradeLegacyRoles(); // before seeding: Software Engineer becomes the Senior Developer (0.5.0)
   seedDefaultRoles();
   purgeExpiredSessions();
 }

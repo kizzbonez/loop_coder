@@ -289,7 +289,7 @@ export function buildMcpServer(actor: Actor): McpServer {
     story_points: storyPointsArg.optional(),
     parent: z.string().optional().describe('Parent epic: ref from this call or an existing key'),
     depends_on: z.array(z.string()).max(20).optional().describe('Refs from this call or existing keys'),
-    assigned_role: z.string().optional().describe('Role key that implements it, e.g. software_engineer, ui_designer, architect'),
+    assigned_role: z.string().optional().describe('Role key that implements it, e.g. backend_developer, frontend_developer, senior_developer, ui_designer, architect'),
     labels: z.array(z.string().max(30)).max(10).optional(),
     refined: z.boolean().optional().describe('True only when the item already meets the Definition of Ready'),
   });

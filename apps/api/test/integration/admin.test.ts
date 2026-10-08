@@ -84,17 +84,19 @@ describe('admin: users', () => {
 });
 
 describe('admin: agent roles', () => {
-  it('lists the nine built-in SDLC roles', async () => {
+  it('lists the eleven built-in SDLC roles', async () => {
     const roles = (await admin.get('/api/admin/agent-roles').expect(200)).body.items;
     expect(roles.map((r: { key: string }) => r.key).sort()).toEqual(
       [
         'architect',
+        'backend_developer',
         'code_reviewer',
         'devops_engineer',
+        'frontend_developer',
         'project_manager',
         'qa_engineer',
         'security_engineer',
-        'software_engineer',
+        'senior_developer',
         'tech_writer',
         'ui_designer',
       ].sort(),
