@@ -1,5 +1,10 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AiProviderDTO,
+  AiProvidersDTO,
+  AiProviderTestDTO,
+  CreateAiProviderInput,
+  UpdateAiProviderInput,
   ReplayDTO,
   ActivityDTO,
   RemarkDTO,
@@ -83,6 +88,7 @@ export const keys = {
     settings: ['admin', 'settings'] as const,
     tokens: ['admin', 'tokens'] as const,
     agentSessions: ['admin', 'agent-sessions'] as const,
+    aiProviders: ['admin', 'ai-providers'] as const,
     audit: (filter: string) => ['admin', 'audit', filter] as const,
   },
 };
@@ -464,6 +470,23 @@ export const useAudit = (action: string) =>
     queryKey: keys.admin.audit(action),
     queryFn: () => api.get<{ items: AuditLogDTO[]; nextCursor: string | null }>(`/admin/audit?limit=100${action ? `&action=${encodeURIComponent(action)}` : ''}`),
   });
+
+export const useAdminAiProviders = () =>
+  useQuery({ queryKey: keys.admin.aiProviders, queryFn: () => api.get<AiProvidersDTO>('/admin/ai-providers') });
+
+export function useAiProviderMutations() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: keys.admin.aiProviders });
+  return {
+    create: useMutation({ mutationFn: (input: CreateAiProviderInput) => api.post<AiProviderDTO>('/admin/ai-providers', input), onSuccess: refresh }),
+    update: useMutation({
+      mutationFn: ({ id, input }: { id: string; input: UpdateAiProviderInput }) => api.patch<AiProviderDTO>(`/admin/ai-providers/${id}`, input),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api.delete(`/admin/ai-providers/${id}`), onSuccess: refresh }),
+    test: useMutation({ mutationFn: (id: string) => api.post<AiProviderTestDTO>(`/admin/ai-providers/${id}/test`), onSuccess: refresh }),
+  };
+}
 
 export function useAdminMutations() {
   const qc = useQueryClient();

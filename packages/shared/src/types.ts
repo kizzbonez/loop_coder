@@ -434,3 +434,40 @@ export interface ApiErrorBody {
     details?: unknown;
   };
 }
+
+// ---------------------------------------------------------------------------
+// AI providers
+// ---------------------------------------------------------------------------
+
+export interface AiProviderDTO {
+  id: string;
+  name: string;
+  preset: string;
+  kind: 'anthropic' | 'openai_compatible';
+  baseUrl: string;
+  /** The model agents use by default. */
+  model: string;
+  enabled: boolean;
+  /** The key is never returned: only whether it can be used and its last characters. */
+  key: { hint: string | null; status: 'ok' | 'locked' };
+  lastTest: { at: string; ok: boolean; message: string } | null;
+  /** Models the provider listed at the last successful test. */
+  models: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiProvidersDTO {
+  items: AiProviderDTO[];
+  /** False until LOOP_SECRETS_KEY is set on the server: keys cannot be saved or used. */
+  secretsConfigured: boolean;
+  /** Hosts the egress gateway lets the server reach (those of enabled providers). */
+  allowedHosts: string[];
+}
+
+export interface AiProviderTestDTO {
+  ok: boolean;
+  message: string;
+  models: string[];
+  provider: AiProviderDTO;
+}

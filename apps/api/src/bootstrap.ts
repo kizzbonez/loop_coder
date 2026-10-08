@@ -1,4 +1,5 @@
 import { runMigrations } from './db/migrate';
+import { syncEgressAllowlist } from './modules/ai-providers/ai-providers.service';
 import { announceSetupIfRequired } from './modules/auth/auth.service';
 import { purgeExpiredSessions } from './modules/auth/sessions.service';
 import { seedDefaultRoles } from './modules/roles/roles.service';
@@ -15,6 +16,7 @@ export function bootstrap(): void {
   upgradeLegacyRoles(); // before seeding: Software Engineer becomes the Senior Developer (0.5.0)
   seedDefaultRoles();
   purgeExpiredSessions();
+  syncEgressAllowlist(); // the egress gateway reaches only the hosts of enabled AI providers
 }
 
 export { announceSetupIfRequired };

@@ -143,6 +143,10 @@ Settings). Roles and their instructions are edited in Administration → Agent r
   agent roles, global settings (registration, password policy, session and token lifetime,
   rework limit, claim timeout, agent kill switch), all access tokens, agent sessions, the
   audit log, and download online database backups.
+- **AI providers** (Administration → AI providers): API keys for Anthropic, OpenAI, Gemini,
+  Qwen, Kimi, DeepSeek, OpenRouter or any OpenAI-compatible service, encrypted with
+  `LOOP_SECRETS_KEY` (`npm run secrets-key`), never shown again after saving. The server
+  reaches only the enabled providers' hosts, through an allow-listed egress gateway.
 - **Access tokens** (Account → Access tokens) can be scoped to one project or one
   workspace and always expire. Revoke them at any time. Each token is one agent and sets the
   roles it plays.
@@ -159,6 +163,7 @@ Copy `.env.example` to `.env`. Every value is optional.
 | `CLOUDFLARE_TUNNEL_TOKEN` | (empty) | Only for the optional built-in connector (`--profile tunnel`). |
 | `COOKIE_SECURE` | `auto` | Secure cookies when the request came over HTTPS. |
 | `SETUP_CODE` | random | Fixed one-time setup code (otherwise printed to the logs). |
+| `LOOP_SECRETS_KEY` | (none) | Encrypts AI provider API keys at rest. Create it with `npm run secrets-key` (never shown). Without it, keys cannot be saved; if it changes, saved keys must be entered again. Back it up apart from the database. |
 | `WORKSPACES_HOST_DIR` | `./workspaces` | Host folder for project code, mounted read-only for the file browser. |
 | `LOG_LEVEL` | `info` | API log level (JSON logs). |
 

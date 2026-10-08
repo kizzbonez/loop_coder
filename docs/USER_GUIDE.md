@@ -602,6 +602,7 @@ the audit log and backups. Administrators see **Administration** in the sidebar.
 | **Workspaces** | Every workspace and project on the server; open or delete them. |
 | **Agent roles** | Edit the instructions of the eleven built-in roles, or add your own roles (for example a Data Engineer). |
 | **Agent sessions** | Every agent connection: which tool, for which project, on whose behalf, how many tool calls and finished items. |
+| **AI providers** | API keys for AI models: Anthropic (Claude), OpenAI, Gemini, Qwen, Kimi, DeepSeek, OpenRouter or any OpenAI-compatible service. Keys are stored encrypted; **Test** checks a key. See [AI providers and API keys](#ai-providers-and-api-keys). |
 | **Tokens** | All access tokens of all users; revoke any of them. |
 | **Settings** | Registration, password and lockout rules, session and token lifetimes, the agent **kill switch**, rework limit, claim timeout. |
 | **Audit log** | A permanent record of sign-ins, failed attempts, lockouts, admin actions, token and settings changes. |
@@ -619,6 +620,41 @@ the audit log and backups. Administrators see **Administration** in the sidebar.
 
 > [!CAUTION]
 > **Backups** contain all data, including password hashes. Store them somewhere secure.
+
+### AI providers and API keys
+
+Agents that use an **API key** instead of a Claude Code (or other) subscription need a
+provider. Add one under **Administration → AI providers**:
+
+1. **Turn on secret storage once.** On the server, in the Loop Coder folder, run
+   `npm run secrets-key`. It writes a random `LOOP_SECRETS_KEY` into `.env` without showing
+   it. Then restart with `npm run up`. Until then the page says secret storage is not set up.
+2. **Add provider:** choose the provider, give it a name, paste the **API key** and choose a
+   **default model** (Anthropic starts with `claude-opus-5-5`; for the others, test first and
+   pick from the models the key can use). The base URL is filled in; change it only for another
+   region (for example Qwen or Kimi in mainland China) or for **Other (OpenAI-compatible)**.
+3. **Add and test** saves the key and checks it straight away by listing the provider's
+   models. **Test** checks it again later. A failed test says why (rejected key, wrong address,
+   unreachable).
+
+![Adding an AI provider](images/guide/39-admin-ai-providers.png)
+
+How your keys are protected:
+
+- Keys are **encrypted** (AES-256-GCM) with `LOOP_SECRETS_KEY`, which lives only in `.env`,
+  never in the database. A database backup alone reveals no key.
+- After saving, a key is **never shown again**: only its last four characters. To change it,
+  edit the provider and paste a new one; leave the field empty to keep the saved key.
+- If `LOOP_SECRETS_KEY` changes, saved keys are marked **Locked** and must be entered again.
+  **Back up `.env` apart from the database.**
+- The server has **no general internet access**. A small egress gateway lets it reach only the
+  hosts of **enabled** providers, over HTTPS (the page lists them). Disabling or deleting a
+  provider closes its host again.
+- Every change and test is recorded in the audit log (without the key).
+
+> [!NOTE]
+> Saved keys are ready for the API-billed agents that come next; agents connected through
+> Claude Code, Cursor or VS Code keep using their own subscription.
 
 ---
 

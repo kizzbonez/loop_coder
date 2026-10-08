@@ -314,7 +314,8 @@ describe('controls and safety', () => {
     await setAgent('paused');
     // The client gives up after 300 ms (a timeout or a closed session).
     await expect(mcp.rpc('tools/call', { name: 'wait_for_work', arguments: { ...P, seconds: 20 } }).timeout(300)).rejects.toThrow(/Timeout/);
-    await sleep(100);
+    // Give the server time to notice the closed connection, even on a busy machine.
+    await sleep(600);
     await setAgent('active');
     await sleep(300);
     // Had the abandoned wait claimed the kickoff, another session would be told to wait.

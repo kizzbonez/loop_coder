@@ -4,8 +4,10 @@ import {
   adminResetPasswordSchema,
   adminUpdateUserSchema,
   agentRoleSchema,
+  createAiProviderSchema,
   settingsSchema,
   updateAgentRoleSchema,
+  updateAiProviderSchema,
 } from '@loop/shared';
 import { idParam, parse, queryInt, queryString } from '../../lib/http';
 import { actorFrom, requireAdmin } from '../../middleware/auth';
@@ -26,11 +28,33 @@ import {
 } from '../users/users.service';
 import { deleteWorkspace, listAllWorkspaces } from '../workspaces/workspaces.service';
 import { createBackup, getAdminStats, getSystemInfo } from './admin.service';
+import { createAiProvider, deleteAiProvider, listAiProviders, testAiProvider, updateAiProvider } from '../ai-providers/ai-providers.service';
 
 /** Platform administration. Every route requires the platform `admin` role. */
+/** Administration → AI providers. */
+function aiProviderRoutes(router: Router): void {
+  router.get('/ai-providers', (_req, res) => {
+    res.json(listAiProviders());
+  });
+  router.post('/ai-providers', (req, res) => {
+    res.status(201).json(createAiProvider(actorFrom(req), parse(createAiProviderSchema, req.body)));
+  });
+  router.patch('/ai-providers/:id', (req, res) => {
+    res.json(updateAiProvider(actorFrom(req), idParam(req, 'id', 'AI provider'), parse(updateAiProviderSchema, req.body)));
+  });
+  router.delete('/ai-providers/:id', (req, res) => {
+    deleteAiProvider(actorFrom(req), idParam(req, 'id', 'AI provider'));
+    res.status(204).end();
+  });
+  router.post('/ai-providers/:id/test', async (req, res) => {
+    res.json(await testAiProvider(actorFrom(req), idParam(req, 'id', 'AI provider')));
+  });
+}
+
 export function adminRoutes(): Router {
   const router = Router();
   router.use(requireAdmin);
+  aiProviderRoutes(router);
   const uid = (req: Request) => idParam(req, 'id', 'User');
 
   // Overview -------------------------------------------------------------------

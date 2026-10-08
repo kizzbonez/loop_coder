@@ -40,6 +40,7 @@ const AdminWorkspaces = page(() => import('./pages/admin/AdminWorkspaces'), 'Adm
 const AdminRoles = page(() => import('./pages/admin/AdminRoles'), 'AdminRoles');
 const AdminAgents = page(() => import('./pages/admin/AdminAgents'), 'AdminAgents');
 const AdminTokens = page(() => import('./pages/admin/AdminTokens'), 'AdminTokens');
+const AdminAiProviders = page(() => import('./pages/admin/AdminAiProviders'), 'AdminAiProviders');
 const AdminSettings = page(() => import('./pages/admin/AdminSettings'), 'AdminSettings');
 const AdminAudit = page(() => import('./pages/admin/AdminAudit'), 'AdminAudit');
 const AdminSystem = page(() => import('./pages/admin/AdminSystem'), 'AdminSystem');
@@ -121,6 +122,7 @@ export function App() {
             <Route path="roles" element={<AdminRoles />} />
             <Route path="agents" element={<AdminAgents />} />
             <Route path="tokens" element={<AdminTokens />} />
+            <Route path="ai-providers" element={<AdminAiProviders />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="audit" element={<AdminAudit />} />
             <Route path="system" element={<AdminSystem />} />

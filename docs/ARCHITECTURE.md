@@ -116,6 +116,25 @@ restricted to safe characters: slugs, project keys and `branchNameSchema` for th
 with a system remark. A human answer with *resume* returns it to the stage it came from
 and resets the counter.
 
+## AI providers and the egress gateway
+
+- **Secrets at rest** (`lib/secrets.ts`): API keys are sealed with AES-256-GCM, a random
+  96-bit nonce per value and the provider's id as additional data (`v1:nonce:tag:ciphertext`),
+  under the master key `LOOP_SECRETS_KEY` from the environment. Each row stores the master
+  key's fingerprint, so a changed key shows as *locked* instead of failing obscurely. Keys
+  are never returned by the API, logged or audited; only their last four characters.
+- **Connection test** (`modules/ai-providers`): Anthropic through the official
+  `@anthropic-ai/sdk` (`models.list`, 10 s timeout, no retries); every other provider through
+  its OpenAI-compatible `GET /models` with a bearer token and redirects refused. Failures
+  are explained from the status code; a provider's error body is never echoed.
+- **Egress** (`apps/egress`): the API is on the internal `backend` network only. Its
+  outbound HTTPS goes through `HTTPS_PROXY=http://egress:3128` (Node's built-in fetch honours
+  it with `NODE_USE_ENV_PROXY=1`). The gateway (Node, no dependencies) accepts only
+  `CONNECT host:443` to host names in `/egress/allowlist.json`, which the API rewrites
+  atomically from the enabled providers. It resolves the name itself, refuses private,
+  loopback, link-local and other non-public addresses, and connects to the address it
+  checked. It never sees request contents (TLS is end to end).
+
 ## Realtime
 
 The API keeps an in-process `EventEmitter` per project. Browsers subscribe with

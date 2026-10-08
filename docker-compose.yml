@@ -37,9 +37,19 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       # Optional fixed setup code; otherwise a random one is printed to the logs.
       SETUP_CODE: ${SETUP_CODE:-}
+      # Encrypts AI provider API keys at rest (`npm run secrets-key` adds one to .env).
+      LOOP_SECRETS_KEY: ${LOOP_SECRETS_KEY:-}
+      # The API has no route to the internet: outbound HTTPS goes through the egress gateway,
+      # which lets through only the hosts of enabled AI providers.
+      HTTPS_PROXY: http://egress:3128
+      NO_PROXY: localhost,127.0.0.1
+      NODE_USE_ENV_PROXY: "1"
+      EGRESS_ALLOWLIST_PATH: /egress/allowlist.json
     volumes:
       # SQLite database: created automatically on first start.
       - loop_data:/data
+      # The egress gateway's allow list, written by the API.
+      - egress_config:/egress
       # Project code written by Claude Code on the host, shown read-only in the file browser.
       - ${WORKSPACES_HOST_DIR:-./workspaces}:/workspaces:ro
     read_only: true
@@ -51,6 +61,26 @@ services:
       resources:
         limits:
           memory: 512m
+
+  # The only way out to the internet: HTTPS to the hosts of enabled AI providers, nothing else.
+  egress:
+    <<: *hardening
+    image: loop-coder-egress:${APP_VERSION:-0.7.1}
+    build:
+      context: .
+      dockerfile: apps/egress/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.7.1}
+    volumes:
+      - egress_config:/egress:ro
+    read_only: true
+    networks:
+      - backend
+      - outbound
+    deploy:
+      resources:
+        limits:
+          memory: 64m
 
   web:
     <<: *hardening
@@ -109,11 +139,14 @@ services:
 
 volumes:
   loop_data:
+  egress_config:
 
 networks:
   # API ↔ web only. Internal: no route to the internet and unreachable from tunnels.
   backend:
     internal: true
+  # Internet access for the egress gateway only.
+  outbound: {}
   # Entry point for the UI. A Cloudflare Tunnel connector joins this network and can
   # reach nothing but nginx (alias loop-coder-web).
   edge:

@@ -1,4 +1,4 @@
-import { Bot, Building, Database, KeyRound, LayoutDashboard, ScrollText, Settings, Shield, Users, Workflow } from 'lucide-react';
+import { Bot, Building, Cpu, Database, KeyRound, LayoutDashboard, ScrollText, Settings, Shield, Users, Workflow } from 'lucide-react';
 import { Outlet } from 'react-router';
 import { TabNav } from '../../components/ui/misc';
 
@@ -23,6 +23,7 @@ export function AdminLayout() {
             { to: '/admin/workspaces', label: 'Workspaces', icon: Building },
             { to: '/admin/roles', label: 'Agent roles', icon: Workflow },
             { to: '/admin/agents', label: 'Agent sessions', icon: Bot },
+            { to: '/admin/ai-providers', label: 'AI providers', icon: Cpu },
             { to: '/admin/tokens', label: 'Tokens', icon: KeyRound },
             { to: '/admin/settings', label: 'Settings', icon: Settings },
             { to: '/admin/audit', label: 'Audit log', icon: ScrollText },

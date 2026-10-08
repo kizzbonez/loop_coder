@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseMasterKey } from '../lib/secrets';
 
 const booleanish = z
   .enum(['true', 'false', '1', '0', 'yes', 'no'])
@@ -53,6 +54,18 @@ const envSchema = z.object({
 
   /** Optional read-only mount of project workspaces for the in-app file browser. */
   WORKSPACES_DIR: z.string().optional(),
+
+  /**
+   * Master key that encrypts secrets at rest (AI provider API keys): 32 random bytes as base64
+   * or 64 hex characters. Create it with `npm run secrets-key`. Kept out of the database, so a
+   * database backup alone reveals no API key; back it up separately.
+   */
+  LOOP_SECRETS_KEY: z
+    .string()
+    .optional()
+    .refine((value) => !value || parseMasterKey(value) !== null, 'must be 32 bytes as base64 or 64 hex characters (create one with npm run secrets-key)'),
+  /** Where to write the hosts the egress gateway may reach (a volume shared with it). Unset: nothing is written. */
+  EGRESS_ALLOWLIST_PATH: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

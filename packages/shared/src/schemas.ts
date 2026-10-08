@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AI_PROVIDER_PRESET_IDS } from './providers';
 import {
   AGENT_STATES,
   GIT_MODES,
@@ -70,6 +71,65 @@ export const setupSchema = z.object({
 export const registerSchema = z.object({ email: emailSchema, name: nameSchema, password: passwordSchema });
 export const changePasswordSchema = z.object({ currentPassword: passwordSchema, newPassword: passwordSchema });
 export const updateProfileSchema = z.object({ name: nameSchema });
+/**
+ * An AI provider's API address: https only, a host name (no credentials, query or fragment),
+ * without a trailing slash. Only hosts configured here are reachable through the egress gateway.
+ */
+export const providerBaseUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .transform((value, ctx) => {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      ctx.addIssue({ code: 'custom', message: 'Enter a full https:// address' });
+      return z.NEVER;
+    }
+    const host = url.hostname;
+    if (url.protocol !== 'https:') ctx.addIssue({ code: 'custom', message: 'Use an https:// address' });
+    else if (url.username || url.password) ctx.addIssue({ code: 'custom', message: 'Do not put credentials in the address' });
+    else if (url.search || url.hash) ctx.addIssue({ code: 'custom', message: 'Remove the query or #fragment' });
+    else if (url.port && url.port !== '443') ctx.addIssue({ code: 'custom', message: 'Only the standard HTTPS port is allowed' });
+    else if (!/^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/.test(host) || /^[\d.]+$/.test(host)) ctx.addIssue({ code: 'custom', message: 'Use a host name, not an IP address' });
+    else return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+    return z.NEVER;
+  });
+/** A model name as providers write them (e.g. claude-opus-5-5, gpt-x, models/gemini-x, qwen-max). */
+export const modelNameSchema = z
+  .string()
+  .trim()
+  .max(100)
+  .regex(/^[A-Za-z0-9._:/@-]*$/, 'Letters, digits and . _ : / @ - only');
+/** An API key: printable characters without spaces. */
+export const apiKeySchema = z
+  .string()
+  .trim()
+  .min(8, 'That does not look like an API key')
+  .max(500)
+  .regex(/^[\x21-\x7e]+$/, 'An API key has no spaces or special characters');
+
+export const createAiProviderSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  preset: z.enum(AI_PROVIDER_PRESET_IDS),
+  /** Defaults to the preset's address; required for "custom". */
+  baseUrl: providerBaseUrlSchema.optional(),
+  model: modelNameSchema.default(''),
+  apiKey: apiKeySchema,
+  enabled: z.boolean().default(true),
+});
+export const updateAiProviderSchema = z
+  .object({
+    name: z.string().trim().min(1).max(60),
+    baseUrl: providerBaseUrlSchema,
+    model: modelNameSchema,
+    /** A new key replaces the stored one; leave it out to keep the stored key. */
+    apiKey: apiKeySchema,
+    enabled: z.boolean(),
+  })
+  .partial();
+
 /** A set of agent role keys (lowercase, as in the Agent roles list). */
 export const agentRoleKeysSchema = z
   .array(z.string().trim().regex(/^[a-z][a-z0-9_]{1,39}$/, 'Unknown role'))
@@ -287,6 +347,8 @@ export type SetupData = z.output<typeof setupSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type CreateTokenInput = z.input<typeof createTokenSchema>;
 export type UpdateTokenInput = z.input<typeof updateTokenSchema>;
+export type CreateAiProviderInput = z.input<typeof createAiProviderSchema>;
+export type UpdateAiProviderInput = z.input<typeof updateAiProviderSchema>;
 export type CreateWorkspaceInput = z.input<typeof createWorkspaceSchema>;
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
 export type CreateProjectInput = z.input<typeof createProjectSchema>;

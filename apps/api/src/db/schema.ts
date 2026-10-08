@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import {
   AGENT_STATES,
+  AI_PROVIDER_KINDS,
   GIT_MODES,
   AUTHOR_TYPES,
   CEREMONIES,
@@ -151,6 +152,32 @@ export const projects = sqliteTable(
   },
   // Project keys are globally unique so work-item keys (e.g. SHOP-12) are unambiguous everywhere.
   (t) => [uniqueIndex('projects_key_uq').on(t.key), index('projects_workspace_idx').on(t.workspaceId)],
+);
+
+/** AI providers configured by an administrator; the API key is sealed with LOOP_SECRETS_KEY. */
+export const aiProviders = sqliteTable(
+  'ai_providers',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    preset: text('preset').notNull(),
+    kind: text('kind', { enum: AI_PROVIDER_KINDS }).notNull(),
+    baseUrl: text('base_url').notNull(),
+    model: text('model').notNull().default(''),
+    enabled: bool('enabled').notNull().default(true),
+    apiKeySealed: text('api_key_sealed').notNull(),
+    /** Fingerprint of the master key that sealed it, to notice a changed LOOP_SECRETS_KEY. */
+    apiKeyId: text('api_key_id').notNull(),
+    apiKeyHint: text('api_key_hint'),
+    lastTestAt: ts('last_test_at'),
+    lastTestOk: bool('last_test_ok'),
+    lastTestMessage: text('last_test_message'),
+    models: text('models', { mode: 'json' }).$type<string[]>(),
+    createdById: text('created_by_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('ai_providers_name_uq').on(t.name)],
 );
 
 export const apiTokens = sqliteTable(
@@ -461,6 +488,7 @@ export type SprintRow = typeof sprints.$inferSelect;
 export type AgentRoleRow = typeof agentRoles.$inferSelect;
 export type RemarkRow = typeof taskRemarks.$inferSelect;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
+export type AiProviderRow = typeof aiProviders.$inferSelect;
 export type ActivityRow = typeof activities.$inferSelect;
 export type AgentSessionRow = typeof agentSessions.$inferSelect;
 export type AgentPresenceLogRow = typeof agentPresenceLog.$inferSelect;

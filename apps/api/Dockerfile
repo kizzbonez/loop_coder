@@ -48,8 +48,8 @@ ENV NODE_ENV=production \
     WORKSPACES_DIR=/workspaces
 
 RUN apk add --no-cache tini \
-  && mkdir -p /data /workspaces \
-  && chown node:node /data /workspaces
+  && mkdir -p /data /workspaces /egress \
+  && chown node:node /data /workspaces /egress
 
 WORKDIR /app
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules

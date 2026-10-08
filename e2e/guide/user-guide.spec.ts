@@ -337,6 +337,13 @@ test('capture the user guide screenshots', async ({ page, browser, request }) =>
     else await snap(page, name);
   }
 
+  // AI providers: adding one (the key field is masked; the key is a placeholder).
+  await page.goto('/admin/ai-providers');
+  await page.getByRole('button', { name: 'Add provider' }).click();
+  await page.getByRole('dialog').getByLabel('API key').fill('sk-ant-placeholder-for-the-guide-0000');
+  await snapEl(page.getByRole('dialog'), '39-admin-ai-providers');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
   // ---------------------------------------------------------------- 6. Dark mode, mobile, sign-in
   const state = await page.context().storageState();
   const dark = await browser.newContext({ storageState: state, colorScheme: 'dark', viewport: { width: 1440, height: 900 } });

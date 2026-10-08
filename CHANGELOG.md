@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **AI providers** (Administration → AI providers): store API keys for Anthropic (Claude),
+  OpenAI, Google Gemini, Qwen (Alibaba Cloud Model Studio), Kimi (Moonshot AI), DeepSeek,
+  OpenRouter or any OpenAI-compatible service, with a default model each.
+  - Keys are encrypted at rest (AES-256-GCM) with a new `LOOP_SECRETS_KEY`, kept in `.env`
+    and never in the database. `npm run secrets-key` creates it without showing it.
+  - After saving, only a key's last four characters are shown; a changed master key marks
+    keys as locked. Changes and tests are audited without the key.
+  - **Add and test** and **Test** check a key by listing the provider's models (Anthropic
+    through the official SDK, the others through their OpenAI-compatible API) and explain any
+    failure.
+- **Egress gateway**: a small new container that is the server's only way to the internet.
+  The API stays on the internal network and reaches only the hosts of enabled AI providers,
+  over HTTPS; private and internal addresses are always refused.
+
+### Upgrading
+
+- Run `npm run secrets-key` once, then `npm run up`. Back up `.env` apart from the database.
+
 ## [0.7.1] - 2026-10-08
 
 ### Changed
