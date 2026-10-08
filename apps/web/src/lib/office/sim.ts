@@ -202,8 +202,8 @@ const PASTIME_SECONDS: Partial<Record<PastimeKind, [number, number]>> = {
   servers: [12, 18],
   reading: [25, 35],
   trophies: [12, 16],
-  patrol: [70, 70],
-  bughunt: [40, 40],
+  patrol: [120, 120],
+  bughunt: [60, 60],
 };
 
 /** Solo pastimes anyone can pick, with how often. */
@@ -689,7 +689,7 @@ export class OfficeSim {
       const stops =
         kind === 'patrol'
           ? PATROL_ROUTE.map((s) => ({ ...s }))
-          : Array.from({ length: 4 }, () => {
+          : Array.from({ length: 6 }, () => {
               const a = BUG_HUNT_AREA;
               return { x: a.x + Math.floor(this.random() * a.w), y: a.y + Math.floor(this.random() * a.h), face: this.random() < 0.5 ? ('left' as const) : ('right' as const) };
             }).filter((s) => walkable(s.x, s.y));
@@ -737,8 +737,9 @@ export class OfficeSim {
         this.cue('paper');
         break;
       case 'patrol':
-        if (this.random() < 0.4) this.speak(w, pickFrom(PATROL_LINES, Math.floor(this.random() * PATROL_LINES.length)));
-        p.nextAt = this.now + 1.5;
+        // A look around at every stop (see updatePastimeScripts), and a remark at most of them.
+        if (this.random() < 0.65) this.speak(w, pickFrom(PATROL_LINES, Math.floor(this.random() * PATROL_LINES.length)));
+        p.nextAt = this.now + 3.5;
         break;
       case 'bughunt': {
         const r = this.random();
@@ -750,7 +751,7 @@ export class OfficeSim {
             this.cue('chime', 1.3);
           }
         }
-        p.nextAt = this.now + 2;
+        p.nextAt = this.now + 2.5 + this.random() * 1.5;
         break;
       }
     }
@@ -770,7 +771,11 @@ export class OfficeSim {
         this.arrive(w, p);
         continue;
       }
-      if (this.now < (p.nextAt ?? 0)) continue;
+      if (this.now < (p.nextAt ?? 0)) {
+        // On patrol, standing at a stop: look left, then right.
+        if (p.kind === 'patrol') p.spot.face = Math.floor((p.nextAt! - this.now) / 1.1) % 2 === 0 ? 'left' : 'right';
+        continue;
+      }
       const line = p.script?.[p.line ?? 0];
       if (line) {
         if (line.by === 'duck') {

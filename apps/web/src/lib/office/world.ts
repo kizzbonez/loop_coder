@@ -215,12 +215,20 @@ export const HOBBIES: Readonly<Record<string, Exclude<PastimeKind, 'chat' | 'hel
   tech_writer: 'reading',
 };
 
-/** Security's round: along the hall, past the QA lab and back by the ops room. */
+/**
+ * Security's round of the whole office: along the upper hall past the library, the meeting room
+ * and the help desk, down by the QA lab, and back along the lower hall past the dock and the
+ * workshop. It stops at each point to look around.
+ */
 export const PATROL_ROUTE: readonly Spot[] = [
-  { x: 16, y: 8, face: 'right' },
-  { x: 29, y: 8, face: 'down' },
-  { x: 30, y: 13, face: 'left' },
-  { x: 16, y: 13, face: 'up' },
+  { x: 8, y: 8, face: 'up' },
+  { x: 16, y: 8, face: 'up' },
+  { x: 23, y: 8, face: 'up' },
+  { x: 30, y: 8, face: 'down' },
+  { x: 30, y: 13, face: 'down' },
+  { x: 22, y: 13, face: 'down' },
+  { x: 16, y: 13, face: 'down' },
+  { x: 10, y: 13, face: 'down' },
 ];
 
 /** Where QA chases bugs with the net: the QA lab and the hall in front of it. */

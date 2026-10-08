@@ -635,7 +635,7 @@ describe('idle activities', () => {
     expect(sim.beginPastime('role:security_engineer', 'patrol')).toBe(true);
     const visited: string[] = [];
     const guard = w(sim, 'security_engineer');
-    for (let t = 0; t < 20 * 90 && guard.pastime; t++) {
+    for (let t = 0; t < 20 * 150 && guard.pastime; t++) {
       sim.update(0.05);
       const p = guard.pastime;
       if (p?.arrived && guard.path.length === 0) {
@@ -649,7 +649,7 @@ describe('idle activities', () => {
     expect(sim.beginPastime('role:qa_engineer', 'bughunt')).toBe(true);
     const qa = w(sim, 'qa_engineer');
     const a = BUG_HUNT_AREA;
-    for (let t = 0; t < 20 * 50 && qa.pastime; t++) {
+    for (let t = 0; t < 20 * 70 && qa.pastime; t++) {
       sim.update(0.05);
       const s = qa.pastime?.spot;
       if (s) expect(s.x >= a.x && s.x < a.x + a.w && s.y >= a.y && s.y < a.y + a.h, `${s.x},${s.y}`).toBe(true);

@@ -435,7 +435,7 @@ the help desk (Needs Human) and a lounge for idle agents.
   | Software Architect | sketches boxes and arrows on the whiteboard |
   | UI/UX Designer | paints at the easel |
   | DevOps Engineer | checks the server rack (its lights speed up) |
-  | Security Engineer | patrols the office |
+  | Security Engineer | patrols the whole office with a flashlight, looking around at every stop |
   | QA Engineer | hunts bugs with the net in the QA lab ("Got one!") |
   | Technical Writer | reads in the backlog library |
 

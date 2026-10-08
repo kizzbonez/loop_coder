@@ -501,9 +501,35 @@ function drawWalker(p: Painter, w: Walker, sim: OfficeSim, hovered: boolean): vo
   }
 }
 
+/** A soft cone of light ahead of the character, widening with distance. */
+function drawFlashlight(p: Painter, w: Walker): void {
+  const beam = 'rgba(255, 240, 160, 0.38)';
+  const core = 'rgba(255, 250, 210, 0.55)';
+  if (w.dir === 'left' || w.dir === 'right') {
+    const sign = w.dir === 'left' ? -1 : 1;
+    for (let i = 0; i < 14; i++) {
+      const half = 1 + Math.floor(i / 2.5);
+      const x = w.x + sign * (7 + i);
+      px(p, x, w.y - 12 - half, 1, half * 2 + 1, beam);
+      if (i < 8) px(p, x, w.y - 12, 1, 1, core);
+    }
+  } else if (w.dir === 'down') {
+    for (let i = 0; i < 12; i++) {
+      const half = 1 + Math.floor(i / 2.5);
+      px(p, w.x + 4 - half, w.y - 6 + i, half * 2 + 1, 1, beam);
+    }
+  }
+  // Facing away: the beam is in front of them, out of sight.
+}
+
 /** Little extras of some pastimes: water from the can, a bug fluttering ahead of the net. */
 function drawPastimeEffect(p: Painter, w: Walker, t: number): void {
   const pt = w.pastime;
+  // On patrol, a flashlight lights the way (walking or looking around).
+  if (pt?.kind === 'patrol') {
+    drawFlashlight(p, w);
+    return;
+  }
   if (!pt?.arrived || w.path.length > 0) return;
   if (pt.kind === 'plants') {
     // Drops from the can onto the plant beside or below the character.

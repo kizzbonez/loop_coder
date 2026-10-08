@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Security Engineer's patrol is easy to spot.** It was a quick 15-second walk that looked like
+  any other. Now it is a round of the whole office with a flashlight, a look left and right at
+  every stop and more remarks (about 40 seconds). QA's bug hunt also lasts longer.
+
 ## [0.10.0] - 2026-10-08
 
 ### Added
