@@ -13,6 +13,7 @@ import { streamProjectEvents } from '../../realtime/sse';
 import { listActivity } from '../activity/activity.service';
 import { listDirectory, readFileContent } from '../files/files.service';
 import { listAgentSessions } from '../presence/presence.service';
+import { getReplay } from '../replay/replay.service';
 import { createSprint, listSprints } from '../sprints/sprints.service';
 import { createTask, listTasks } from '../tasks/tasks.service';
 import { requireProjectAccess } from './access';
@@ -82,6 +83,11 @@ export function projectsRoutes(): Router {
     const flow = req.query.kind === 'flow';
     const limit = queryInt(req.query.limit, 50, 1, flow ? 1000 : 200);
     res.json({ items: listActivity(projectId, { limit, before: beforeDate, actions: flow ? FLOW_ACTIONS : undefined }) });
+  });
+
+  /** One segment of the history (whole project, kickoff or a sprint) with what agents showed, for replays. */
+  router.get('/:id/replay', (req, res) => {
+    res.json(getReplay(actorFrom(req), pid(req), queryString(req.query.segment, 40)));
   });
 
   router.get('/:id/agent-sessions', (req, res) => {

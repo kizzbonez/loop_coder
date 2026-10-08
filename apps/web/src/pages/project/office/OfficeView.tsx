@@ -8,6 +8,7 @@ import { SYSTEM_ROLE_KEYS } from '@loop/shared';
 import { Button } from '../../../components/ui/Button';
 import { PageLoader } from '../../../components/ui/misc';
 import { useFlowState } from '../../../hooks/useFlowState';
+import { SEGMENT_ID } from '../../../lib/flow/timeline';
 import { OfficeAudio } from '../../../lib/office/audio';
 import { roleCharacter } from '../../../lib/office/characters';
 import { lineFromActivity, lineFromRemark, type ChatLine } from '../../../lib/office/chatter';
@@ -28,15 +29,17 @@ const LOG_SIZE = 60;
 /**
  * The agent office: a pixel-art world where each agent walks to the station of the role it is
  * playing, talks about what it is doing, and reacts when poked. Live by default; `?replay=all`
- * replays the history like the Flow tab.
+ * (or `kickoff`, `sprint-2`, …) replays that part of the history on a real clock, like the Flow tab.
  */
 export function OfficeView() {
   const ctx = useProjectContext();
   const { project, tasks, roles } = ctx;
   const lookups = useBoardLookups(project, tasks, roles);
   const [params, setParams] = useSearchParams();
-  const replaying = params.get('replay') === 'all';
-  const state = useFlowState(ctx, { replay: replaying });
+  const replayParam = params.get('replay');
+  const replaying = Boolean(replayParam);
+  const segment = replayParam && SEGMENT_ID.test(replayParam) ? replayParam : 'all';
+  const state = useFlowState(ctx, { replay: replaying, segment });
   const activity = useActivity(project.id, 100);
   const remarks = useLiveRemarks(project.id);
 
@@ -98,31 +101,35 @@ export function OfficeView() {
     );
   }, [sim, state.agents, state.counts, rolesByKey, cast]);
 
-  // Lines to speak: live activity and remarks (or the replayed events), each said once.
-  const lines = useMemo(() => {
-    if (state.replaying) return state.animate.map((a) => lineFromActivity(a, stageName)).filter((l): l is ChatLine => Boolean(l));
-    const fromActivity = (activity.data ?? []).map((a) => lineFromActivity(a, stageName));
-    const fromRemarks = (remarks.data ?? []).map(lineFromRemark);
+  // Lines to speak: live activity and remarks, or everything recorded in the replayed segment.
+  const replayEvents = state.replay.events;
+  const replayRemarks = state.replay.remarks;
+  const allLines = useMemo(() => {
+    const fromActivity = (state.replaying ? replayEvents : (activity.data ?? [])).map((a) => lineFromActivity(a, stageName));
+    const fromRemarks = (state.replaying ? replayRemarks : (remarks.data ?? [])).map(lineFromRemark);
     return [...fromActivity, ...fromRemarks].filter((l): l is ChatLine => Boolean(l)).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
-  }, [state.replaying, state.animate, activity.data, remarks.data, stageName]);
+  }, [state.replaying, replayEvents, replayRemarks, activity.data, remarks.data, stageName]);
+  // In a replay, only what was said up to the moment shown.
+  const t = state.replay.t;
+  const lines = useMemo(() => (state.replaying ? allLines.filter((l) => Date.parse(l.at) <= t) : allLines), [state.replaying, allLines, t]);
 
   const spoken = useRef<Set<string> | null>(null);
-  const mode = useRef({ replaying: state.replaying, cursor: state.replay.cursor });
+  const mode = useRef({ replaying: state.replaying, tape: state.replay.segment?.id, t });
   useEffect(() => {
-    // Switching live ↔ replay starts a fresh conversation; rewinding a replay lets lines be said again.
-    if (mode.current.replaying !== state.replaying) {
+    const tape = state.replay.segment?.id;
+    // Switching live ↔ replay or the segment starts a fresh conversation. Jumping in a replay lists
+    // what was said up to there without saying it all again; while it plays, lines are said as their time comes.
+    if (mode.current.replaying !== state.replaying || mode.current.tape !== tape || (state.replaying && (!state.replay.advanced || t < mode.current.t))) {
       spoken.current = null;
-      setLog([]);
       setCurrent(null);
-    } else if (state.replaying && state.replay.cursor < mode.current.cursor) {
-      spoken.current = new Set();
+      if (!state.replaying || mode.current.replaying !== state.replaying) setLog([]);
     }
-    mode.current = { replaying: state.replaying, cursor: state.replay.cursor };
+    mode.current = { replaying: state.replaying, tape, t };
     if (!state.replaying && !activity.data) return;
     if (!spoken.current) {
       // What happened before the office opened is history: list it, but do not say it.
       spoken.current = new Set(lines.map((l) => l.id));
-      if (!state.replaying) setLog(lines.slice(-20).reverse());
+      setLog(lines.slice(-20).reverse());
       return;
     }
     const fresh = lines.filter((l) => !spoken.current!.has(l.id));
@@ -136,11 +143,11 @@ export function OfficeView() {
     }
     setLog((old) => [...fresh.reverse(), ...old].slice(0, LOG_SIZE));
     setCurrent(fresh[0]!);
-  }, [lines, state.replaying, state.replay.cursor, activity.data, sim, audio]);
+  }, [lines, state.replaying, state.replay.segment?.id, state.replay.advanced, t, activity.data, sim, audio]);
 
-  const setReplay = (on: boolean) =>
+  const setReplay = (value: string | null) =>
     setParams((p) => {
-      if (on) p.set('replay', 'all');
+      if (value) p.set('replay', value);
       else p.delete('replay');
       return p;
     });
@@ -181,7 +188,7 @@ export function OfficeView() {
           >
             Menu
           </Button>
-          <ModeToggle label="Office mode" replaying={replaying} onChange={setReplay} />
+          <ModeToggle label="Office mode" replaying={replaying} onChange={(on) => setReplay(on ? 'all' : null)} />
         </div>
       </div>
 
@@ -202,7 +209,7 @@ export function OfficeView() {
           />
           {state.replaying && (
             <div className="-mx-3 mt-3 -mb-3">
-              <ReplayBar state={state} onExit={() => setReplay(false)} />
+              <ReplayBar state={state} onExit={() => setReplay(null)} onSegment={setReplay} />
             </div>
           )}
           {menuOpen && (

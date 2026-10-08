@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A replay for each sprint.** The Flow and Office tabs replay the whole project, the kickoff
+  or any single sprint. Each sprint runs from the end of the one before until it completed, so
+  its refinement, planning and review are part of it; a sprint still running is marked
+  *(ongoing)*.
+- **Replays on a real clock.** Moves, remarks and agents appear at the moment they really
+  happened, and the clock shows the exact date and time. Speeds go from real time to 1800×,
+  **Skip quiet times** jumps over stretches where nothing happened (and says how much it
+  skipped), and **Previous / Next moment** jump between the moments something happened.
+- **Exact agent positions.** The server now records what every agent shows while it works
+  (role, item, ceremony, activity, online or not) in a presence log, and replays show exactly
+  that, with the same online rules as the live view. History from before this release shows
+  agents inferred from their actions, and the replay bar says so.
+- The office replays what the agents really wrote (progress notes, reviews, test reports,
+  questions), not only board moves.
+- API: `GET /api/projects/:id/replay?segment=all|kickoff|sprint-<n>|latest`.
+
+### Changed
+
+- The replay bar steps between moments in time instead of between events, and its speeds are
+  multiples of real time instead of events per second.
+
 ## [0.3.0] - 2026-10-08
 
 ### Changed

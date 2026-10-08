@@ -1,5 +1,6 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ReplayDTO,
   ActivityDTO,
   RemarkDTO,
   AdminStatsDTO,
@@ -63,6 +64,8 @@ export const keys = {
   burndown: (sprintId: string) => ['sprint', sprintId, 'burndown'] as const,
   activity: (projectId: string) => ['project', projectId, 'activity'] as const,
   flow: (projectId: string) => ['project', projectId, 'flow'] as const,
+  /** Not under ['project', id]: a replay must not change while it plays (reconnects refresh those). */
+  replay: (projectId: string, segment: string) => ['replay', projectId, segment] as const,
   liveRemarks: (projectId: string) => ['project', projectId, 'live-remarks'] as const,
   agentSessions: (projectId: string) => ['project', projectId, 'agent-sessions'] as const,
   files: (projectId: string, path: string) => ['project', projectId, 'files', path] as const,
@@ -223,6 +226,21 @@ export const useFlowActivity = (projectId: string) =>
   useQuery({
     queryKey: keys.flow(projectId),
     queryFn: async () => (await api.get<Items<ActivityDTO>>(`/projects/${projectId}/activity?kind=flow&limit=${FLOW_HISTORY_LIMIT}`)).items,
+  });
+
+/**
+ * One segment of the history for replays. Loaded once and kept as it was: live changes and
+ * reconnects do not touch it, so the replay holds still while it plays.
+ */
+export const useReplayData = (projectId: string, segment: string, enabled: boolean) =>
+  useQuery({
+    queryKey: keys.replay(projectId, segment),
+    queryFn: () => api.get<ReplayDTO>(`/projects/${projectId}/replay?segment=${encodeURIComponent(segment)}`),
+    enabled,
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
 /** Remarks that arrived over the live stream since the page opened (newest first). */

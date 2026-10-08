@@ -131,10 +131,24 @@ test('the office replays the history and works on a phone and in dark mode', asy
   await page.goto(`/p/${projectId}/office`);
   await page.getByRole('radio', { name: 'Replay' }).click();
   await expect(page).toHaveURL(/replay=all/);
-  await page.getByRole('button', { name: 'Step forward' }).click();
-  await page.getByRole('button', { name: 'Step forward' }).click();
+  await page.getByRole('button', { name: 'Next moment' }).click();
+  await page.getByRole('button', { name: 'Next moment' }).click();
   await expect(page.getByRole('heading', { name: 'Replayed chatter' })).toBeVisible();
-  await expect(page.getByRole('log', { name: 'Office chatter' })).toContainText('Kickoff time!');
+  const chatter = page.getByRole('log', { name: 'Office chatter' });
+  await expect(chatter).toContainText('Kickoff time!');
+
+  // Sprint 1 on its own: what the agents wrote is said again, at the moment they wrote it.
+  await page.getByRole('combobox', { name: 'What to replay' }).selectOption('sprint-1');
+  await expect(page).toHaveURL(/replay=sprint-1/);
+  const slider = page.getByRole('slider', { name: 'Replay position' });
+  await slider.fill(await slider.getAttribute('max') ?? '0');
+  await expect(chatter).toContainText('Building the search page');
+  await expect(chatter).toContainText('Designing the booking form');
+  await expect(chatter).toContainText('Can guests book without an account?');
+  await expect(chatter).not.toContainText('Kickoff time!'); // that was before the sprint
+  const team = page.locator('section', { has: page.getByRole('heading', { name: /^Team · / }) });
+  await expect(team.getByRole('listitem').filter({ has: page.getByText('Software Engineer', { exact: true }) })).toContainText('Claude Code');
+  await shot(page, '85-office-replay');
 
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.getByRole('radio', { name: 'Live' }).click();

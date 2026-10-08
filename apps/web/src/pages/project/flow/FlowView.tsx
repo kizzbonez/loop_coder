@@ -10,6 +10,7 @@ import { useFlowState, type FlowState } from '../../../hooks/useFlowState';
 import { useElementWidth, useReducedMotion } from '../../../hooks/useMeasure';
 import { formatDateTime, timeAgo } from '../../../lib/format';
 import { layoutFlow } from '../../../lib/flow/layout';
+import { SEGMENT_ID } from '../../../lib/flow/timeline';
 import { CEREMONY_LABELS } from '@loop/shared';
 import { type FlowAgent, type StageId } from '../../../lib/flow/model';
 import { useBoardLookups, useProjectContext, useTaskDrawer } from '../context';
@@ -18,15 +19,19 @@ import { ModeToggle } from '../../../components/flow/ModeToggle';
 import { ReplayBar } from '../../../components/flow/ReplayBar';
 import { STAGE_ICONS } from './stage-meta';
 
-/** `?replay=all` replays the project; `?replay=<item id>` follows one work item's journey. */
+/**
+ * `?replay=all` replays the whole project, `?replay=kickoff` or `?replay=sprint-2` one part of it;
+ * `?replay=<item id>` follows one work item's journey.
+ */
 export function FlowView() {
   const ctx = useProjectContext();
   const { project, tasks, roles } = ctx;
   const lookups = useBoardLookups(project, tasks, roles);
   const [params, setParams] = useSearchParams();
   const replayParam = params.get('replay');
-  const focusTaskId = replayParam && replayParam !== 'all' ? replayParam : null;
-  const state = useFlowState(ctx, { replay: Boolean(replayParam), focusTaskId });
+  const segment = replayParam && SEGMENT_ID.test(replayParam) ? replayParam : undefined;
+  const focusTaskId = replayParam && !segment ? replayParam : null;
+  const state = useFlowState(ctx, { replay: Boolean(replayParam), segment, focusTaskId });
   const reducedMotion = useReducedMotion();
   const [measure, width] = useElementWidth<HTMLDivElement>();
   const layout = useMemo(() => layoutFlow(width || 1200), [width]);
@@ -85,7 +90,7 @@ export function FlowView() {
               />
             )}
           </div>
-          {state.replaying && <ReplayBar state={state} onExit={() => setReplay(null)} />}
+          {state.replaying && <ReplayBar state={state} onExit={() => setReplay(null)} onSegment={focusTaskId ? undefined : setReplay} />}
           <Legend />
         </section>
 
@@ -276,7 +281,7 @@ function duration(ms: number): string {
 
 function JourneyPanel({ state, rolesByKey }: { state: FlowState; rolesByKey: Map<string, AgentRoleDTO> }) {
   const { openTask } = useTaskDrawer();
-  const { journey, cursor, seek, focusTaskId } = state.replay;
+  const { journey, reached, seek, focusTaskId } = state.replay;
   const total = journey.reduce((sum, s) => sum + (s.durationMs ?? 0), 0);
   return (
     <Panel
@@ -295,16 +300,16 @@ function JourneyPanel({ state, rolesByKey }: { state: FlowState; rolesByKey: Map
         <>
           <ol className="relative space-y-0.5 px-4 py-3">
             {journey.map((step, i) => {
-              const reached = i < cursor;
+              const done = i < reached;
               const a = step.activity;
               return (
                 <li key={a.id}>
                   <button
                     type="button"
-                    onClick={() => seek(i + 1)}
-                    className={clsx('flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-surface-2', i === cursor - 1 && 'bg-accent-soft')}
+                    onClick={() => seek(Date.parse(a.createdAt))}
+                    className={clsx('flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-surface-2', i === reached - 1 && 'bg-accent-soft')}
                   >
-                    <span className={clsx('mt-1 size-2.5 shrink-0 rounded-full border-2', reached ? 'border-accent bg-accent' : 'border-line-strong bg-surface')} />
+                    <span className={clsx('mt-1 size-2.5 shrink-0 rounded-full border-2', done ? 'border-accent bg-accent' : 'border-line-strong bg-surface')} />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-1.5 text-[13px]">
                         {a.fromKind && (

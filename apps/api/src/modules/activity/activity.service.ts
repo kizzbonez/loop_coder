@@ -37,7 +37,7 @@ function ceremonyOf(value: unknown): Ceremony | null {
   return typeof value === 'string' && (CEREMONIES as readonly string[]).includes(value) ? (value as Ceremony) : null;
 }
 
-function toDTO(row: ActivityRow, actorName: string | null): ActivityDTO {
+export function activityToDTO(row: ActivityRow, actorName: string | null): ActivityDTO {
   const data = row.data && typeof row.data === 'object' ? (row.data as Record<string, unknown>) : null;
   return {
     id: row.id,
@@ -74,7 +74,7 @@ export function recordActivity(exec: Executor, batch: EventBatch, input: Activit
     })
     .returning()
     .get();
-  batch.add(input.projectId, { type: 'activity.created', activity: toDTO(row, input.actor?.name ?? null) });
+  batch.add(input.projectId, { type: 'activity.created', activity: activityToDTO(row, input.actor?.name ?? null) });
 }
 
 export interface ActivityQuery {
@@ -99,5 +99,5 @@ export function listActivity(projectId: string, { limit, before, actions }: Acti
     .orderBy(desc(activities.createdAt), sql`activities.rowid desc`)
     .limit(limit)
     .all()
-    .map(({ row, actorName }) => toDTO(row, actorName));
+    .map(({ row, actorName }) => activityToDTO(row, actorName));
 }

@@ -124,7 +124,7 @@ Both tabs show the same model of the SDLC; they differ only in how it is drawn.
 ```
 activity log (from/to stage, ceremony) ─┐
 board (tasks, columns)                  ├─ hooks/useFlowState ─┬─ pages/project/flow    SVG graph (FlowGraph)
-online agents (presence)                ┘   live or replay     └─ pages/project/office  canvas game (OfficeCanvas)
+online agents (presence, presence log)  ┘   live or replay     └─ pages/project/office  canvas game (OfficeCanvas)
 ```
 
 - `lib/flow` is pure TypeScript: `model.ts` (stages, paths, where each agent is),
@@ -133,7 +133,18 @@ online agents (presence)                ┘   live or replay     └─ pages/pr
   for wide and narrow screens, curved paths and the points tokens travel along).
 - The API records every move with its from/to stage and every ceremony start
   (`ceremony.started`), and `GET /api/projects/:id/activity?kind=flow` returns just these
-  events (up to 1000) for the replay.
+  events (up to 1000) for the live graph.
+- **Replays are exact.** Every agent call updates its session and appends to
+  `agent_presence_log` when what the agent shows changes (role, item, ceremony, activity), plus
+  a heartbeat at most once a minute while it keeps working. `GET /api/projects/:id/replay?segment=`
+  splits the history into segments (`all`, `kickoff`, `sprint-<n>`, `latest`: each sprint runs
+  from the end of the one before until it completed) and returns, for one segment, the activity
+  from its start until now (later moves rebuild the board at its start), its remarks and its
+  presence rows. `lib/flow/timeline.ts` builds the frame for any moment: the board from the
+  activity, the agents from the presence log with the same rules as the live view (online
+  window included; a row is put on the time of the action its request made), or inferred from
+  their actions for history recorded before the log existed. `hooks/useTimeReplay.ts` is the
+  clock: real time × speed, jumps between moments, skipping quiet stretches.
 - `lib/office` is the pixel game, also free of React: `world.ts` (map, furniture, role
   stations, path finding), `characters.ts` (sprites drawn in code; identity from the agent's
   name, outfit from the role; roles without a hand-made outfit get one derived from their key

@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ActivityDTO, AgentRoleDTO, ColumnDTO, ColumnKind, ProjectDetailDTO, TaskDTO } from '@loop/shared';
+import type { ActivityDTO, AgentRoleDTO, ColumnDTO, ColumnKind, PresenceEntryDTO, ProjectDetailDTO, ReplayDTO, TaskDTO } from '@loop/shared';
 import { keys } from '../../../lib/queries';
 import type { ProjectContext } from '../context';
 import { FlowView } from './FlowView';
@@ -65,6 +65,37 @@ const history = [
   activity({ taskId: 't1', taskKey: 'SHOP-1', fromKind: 'in_progress', toKind: 'review', roleKey: 'software_engineer', message: 'moved' }),
 ].reverse();
 
+// What the server records for a replay: the moves above, and where the agent was (presence log).
+const presenceRow = (at: string, roleKey: string, activity: string): PresenceEntryDTO => ({
+  sessionId: 'sess-1',
+  agentName: 'Claude Code',
+  userName: 'Ada',
+  at,
+  taskId: 't1',
+  taskKey: 'SHOP-1',
+  roleKey,
+  ceremony: null,
+  activity,
+});
+const segments: ReplayDTO['segments'] = [
+  { id: 'all', label: 'Whole project', detail: null, from: '2026-01-01T09:59:00.000Z', to: '2026-01-01T10:05:00.000Z' },
+  { id: 'kickoff', label: 'Kickoff', detail: null, from: '2026-01-01T09:59:00.000Z', to: '2026-01-01T10:00:00.000Z' },
+  { id: 'sprint-1', label: 'Sprint 1', detail: 'Checkout works', from: '2026-01-01T10:00:00.000Z', to: null },
+];
+const replayData: ReplayDTO = {
+  segments,
+  segment: segments[0]!,
+  events: history,
+  remarks: [],
+  presence: [
+    presenceRow('2026-01-01T10:00:01.000Z', 'software_engineer', 'Working on SHOP-1 as Software Engineer'),
+    presenceRow('2026-01-01T10:00:02.000Z', 'code_reviewer', 'Reviewing SHOP-1'),
+  ],
+  presenceSince: '2026-01-01T10:00:01.000Z',
+  onlineWindowMinutes: 10,
+  truncated: false,
+};
+
 const project = {
   id: P,
   key: 'SHOP',
@@ -116,7 +147,9 @@ function renderFlow(path = `/p/${P}/flow`) {
 beforeEach(() => {
   qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
   qc.setQueryData(keys.flow(P), history);
+  qc.setQueryData(keys.replay(P, 'all'), replayData);
 });
+const position = () => Number((screen.getByRole('slider', { name: 'Replay position' }) as HTMLInputElement).value);
 
 describe('FlowView', () => {
   it('draws every stage with its count, the Scrum loop and the agents', () => {
@@ -156,22 +189,43 @@ describe('FlowView', () => {
     expect(screen.getByTestId('where').textContent).toContain('task=t1');
   });
 
-  it('replays the history step by step', async () => {
+  it('replays the history on a real clock, from what was recorded', async () => {
     renderFlow();
     await userEvent.click(screen.getByRole('radio', { name: 'Replay' }));
     expect(screen.getByTestId('where').textContent).toContain('replay=all');
-    // Before the first event SHOP-1 was still in To Do.
+    // At the start (09:59) SHOP-1 was still in To Do, and no agent was there yet.
     expect(screen.getByRole('button', { name: 'To Do: 1 item' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Code Review: 0 items' })).toBeTruthy();
     expect(screen.getByText('Press play to replay the history.')).toBeTruthy();
+    expect(position()).toBe(Date.parse('2026-01-01T09:59:00Z'));
+    expect(screen.getByText(/0:00 \/ 6:00/)).toBeTruthy();
+    // Before the presence log starts, agents are inferred, and the bar says so.
+    expect(screen.getByText(/inferred from their actions/)).toBeTruthy();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Step forward' }));
+    // Next moment: 10:00:01, the first move, with the agent exactly where it was recorded.
+    await userEvent.click(screen.getByRole('button', { name: 'Next moment' }));
+    expect(position()).toBe(Date.parse('2026-01-01T10:00:01Z'));
     expect(screen.getByRole('button', { name: /^In Progress: 1 item/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Claude Code · Software Engineer, on SHOP-1' })).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Step forward' }));
+    expect(screen.queryByText(/inferred from their actions/)).toBeNull();
+    const agents = screen.getByRole('heading', { name: 'Agents at this moment' }).closest('section')!;
+    expect(within(agents).getByText('“Working on SHOP-1 as Software Engineer”')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next moment' }));
     expect(screen.getByRole('button', { name: /^Code Review: 1 item/ })).toBeTruthy();
-    expect((screen.getByRole('slider', { name: 'Replay position' }) as HTMLInputElement).value).toBe('2');
-    expect((screen.getByRole('button', { name: 'Step forward' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Claude Code · Code Reviewer, on SHOP-1' })).toBeTruthy();
+    // Nothing more happened: the next step is the end of the segment.
+    await userEvent.click(screen.getByRole('button', { name: 'Next moment' }));
+    expect(position()).toBe(Date.parse('2026-01-01T10:05:00Z'));
+    expect((screen.getByRole('button', { name: 'Next moment' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Previous moment' }));
+    expect(position()).toBe(Date.parse('2026-01-01T10:00:02Z'));
+
+    // Each sprint has its own replay.
+    const what = screen.getByRole('combobox', { name: 'What to replay' }) as HTMLSelectElement;
+    expect([...what.options].map((o) => o.textContent)).toEqual(['Whole project', 'Kickoff', 'Sprint 1 (ongoing)']);
+    await userEvent.selectOptions(what, 'sprint-1');
+    expect(screen.getByTestId('where').textContent).toContain('replay=sprint-1');
 
     await userEvent.click(screen.getByRole('button', { name: /Back to live/ }));
     expect(screen.getByTestId('where').textContent).not.toContain('replay');
@@ -180,6 +234,7 @@ describe('FlowView', () => {
   it('follows one item on its journey', async () => {
     renderFlow(`/p/${P}/flow?replay=t1`);
     expect(screen.getByText('Following')).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'What to replay' })).toBeNull();
     const journey = screen.getByRole('heading', { name: 'Journey' }).closest('section')!;
     const steps = within(journey).getAllByRole('listitem');
     expect(steps).toHaveLength(2);
@@ -187,6 +242,6 @@ describe('FlowView', () => {
     expect(steps[0]!.textContent).toContain('In Progress');
     expect(steps[0]!.textContent).toMatch(/1s/); // time spent before the next move
     await userEvent.click(within(steps[1]!).getByRole('button'));
-    expect((screen.getByRole('slider', { name: 'Replay position' }) as HTMLInputElement).value).toBe('2');
+    expect(position()).toBe(Date.parse('2026-01-01T10:00:02Z'));
   });
 });

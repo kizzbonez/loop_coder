@@ -392,6 +392,34 @@ export const agentSessions = sqliteTable(
   ],
 );
 
+/**
+ * What each agent was doing, over time: a row whenever its visible state changes (role, item,
+ * ceremony, activity) and a heartbeat while it keeps working. Replays read this to show exactly
+ * what the live views showed. Names are copied in, so the history outlives tokens and sessions.
+ */
+export const agentPresenceLog = sqliteTable(
+  'agent_presence_log',
+  {
+    id: id(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    /** The agent session (no foreign key: the log is kept when sessions are cleaned up). */
+    sessionId: text('session_id').notNull(),
+    agentName: text('agent_name').notNull(),
+    userName: text('user_name'),
+    at: ts('at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    taskId: text('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    taskKey: text('task_key'),
+    roleKey: text('role_key'),
+    ceremony: text('ceremony', { enum: CEREMONIES }),
+    activity: text('activity'),
+  },
+  (t) => [index('agent_presence_log_project_idx').on(t.projectId, t.at), index('agent_presence_log_session_idx').on(t.sessionId, t.at)],
+);
+
 export const auditLogs = sqliteTable(
   'audit_logs',
   {
@@ -429,3 +457,4 @@ export type RemarkRow = typeof taskRemarks.$inferSelect;
 export type ApiTokenRow = typeof apiTokens.$inferSelect;
 export type ActivityRow = typeof activities.$inferSelect;
 export type AgentSessionRow = typeof agentSessions.$inferSelect;
+export type AgentPresenceLogRow = typeof agentPresenceLog.$inferSelect;

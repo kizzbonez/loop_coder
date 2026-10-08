@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { agentDisplayName, type AgentPresenceDTO, type AgentSessionDTO, type Ceremony, type OnlineAgentDTO } from '@loop/shared';
 import { db, type Executor } from '../../db/client';
-import { agentSessions, apiTokens, projects, tasks, users } from '../../db/schema';
+import { agentPresenceLog, agentSessions, apiTokens, projects, tasks, users, type AgentSessionRow } from '../../db/schema';
 import type { Actor } from '../../lib/actor';
 import { addMinutes, now } from '../../lib/time';
 import { publish } from '../../realtime/bus';
@@ -17,6 +17,9 @@ export interface PresenceUpdate {
 }
 
 const onlineSince = () => addMinutes(now(), -getSettings().agent.onlineWindowMinutes);
+
+/** While nothing changes, the presence log still gets a row this often, so replays know the agent was there. */
+export const PRESENCE_HEARTBEAT_MS = 60_000;
 
 const OFFLINE: AgentPresenceDTO = {
   online: false,
@@ -135,22 +138,26 @@ export function touchPresence(actor: Actor, projectId: string, update: PresenceU
     ...(update.activity !== undefined ? { currentActivity: update.activity?.slice(0, 300) ?? null } : {}),
   };
 
+  let session: AgentSessionRow;
   if (current) {
-    db.update(agentSessions)
+    session = db
+      .update(agentSessions)
       .set({
         ...fields,
         toolCalls: sql`${agentSessions.toolCalls} + 1`,
         ...(update.completedItem ? { itemsCompleted: sql`${agentSessions.itemsCompleted} + 1` } : {}),
       })
       .where(eq(agentSessions.id, current.id))
-      .run();
+      .returning()
+      .get();
   } else {
     const token = db
       .select({ clientName: apiTokens.lastClientName })
       .from(apiTokens)
       .where(eq(apiTokens.id, actor.tokenId))
       .get();
-    db.insert(agentSessions)
+    session = db
+      .insert(agentSessions)
       .values({
         projectId,
         userId: actor.userId,
@@ -161,9 +168,55 @@ export function touchPresence(actor: Actor, projectId: string, update: PresenceU
         itemsCompleted: update.completedItem ? 1 : 0,
         ...fields,
       })
-      .run();
+      .returning()
+      .get();
   }
+  recordPresence(session, t);
   publish(projectId, { type: 'agent.presence', agent: getPresence(projectId), agents: listOnlineAgents(projectId) });
+}
+
+/**
+ * Append to the presence log when what the agent shows has changed, or as a heartbeat when the last
+ * row is older than PRESENCE_HEARTBEAT_MS. Replays rebuild the live views from these rows.
+ */
+function recordPresence(session: AgentSessionRow, at: Date): void {
+  const last = db
+    .select()
+    .from(agentPresenceLog)
+    .where(eq(agentPresenceLog.sessionId, session.id))
+    .orderBy(desc(agentPresenceLog.at))
+    .limit(1)
+    .get();
+  const unchanged =
+    last &&
+    last.taskId === session.currentTaskId &&
+    last.roleKey === session.currentRoleKey &&
+    last.ceremony === session.currentCeremony &&
+    last.activity === session.currentActivity;
+  if (unchanged && at.getTime() - last.at.getTime() < PRESENCE_HEARTBEAT_MS) return;
+  const task = session.currentTaskId
+    ? db
+        .select({ number: tasks.number, projectKey: projects.key })
+        .from(tasks)
+        .innerJoin(projects, eq(projects.id, tasks.projectId))
+        .where(eq(tasks.id, session.currentTaskId))
+        .get()
+    : undefined;
+  const user = db.select({ name: users.name }).from(users).where(eq(users.id, session.userId)).get();
+  db.insert(agentPresenceLog)
+    .values({
+      projectId: session.projectId,
+      sessionId: session.id,
+      agentName: agentDisplayName(session.clientName),
+      userName: user?.name ?? null,
+      at,
+      taskId: session.currentTaskId,
+      taskKey: task ? `${task.projectKey}-${task.number}` : null,
+      roleKey: session.currentRoleKey,
+      ceremony: session.currentCeremony,
+      activity: session.currentActivity,
+    })
+    .run();
 }
 
 export function listAgentSessions(opts: { projectId?: string; limit: number }): AgentSessionDTO[] {

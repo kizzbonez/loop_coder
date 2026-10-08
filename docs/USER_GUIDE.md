@@ -325,9 +325,22 @@ middle, and Needs Human underneath.
 
 ### Replay and item journeys
 
-Switch to **Replay** to play back the recorded history: play or pause, step through one event
-at a time, drag the slider, or change the speed (0.5× to 4×). The graph shows the board as it
-was at that moment.
+Switch to **Replay** to play back what really happened, on a real clock:
+
+- **What to replay:** the **Whole project**, the **Kickoff**, or one **sprint** at a time
+  (each sprint runs from the end of the one before until it completed, so its refinement,
+  planning and review are included). A sprint still running is marked *(ongoing)*.
+- The clock shows the exact date and time of the moment on screen, and how far into the part
+  you are. Events, remarks and agents appear at the time they really happened, so a busy
+  minute is busy and a quiet hour is quiet.
+- **Play** runs the clock faster than real time: from **1×** (real time) to **1800×** (30
+  minutes per second). **Skip quiet times** jumps over stretches where nothing happened for
+  more than two minutes and says how much it skipped.
+- **Previous / Next moment** jump to the moments something happened: a move, a remark, an
+  agent changing role or item, or going offline. You can also drag the slider.
+- Agents are shown exactly where they were: Loop Coder records what every agent shows (role,
+  item, ceremony, activity) while it works. History from before that recording started (version
+  0.4.0) shows agents inferred from their actions instead, and the replay bar says so.
 
 To follow one item, open it and click **Replay journey** (the route icon in the item's header).
 The **Journey** panel lists every stage the item went through, who moved it in which role and
@@ -396,8 +409,10 @@ Browsers only allow sound after you click or press a key on the page, so the off
 silent.
 
 > [!NOTE]
-> The office has a **Replay** mode too: the characters walk and talk through the recorded
-> history as it happened.
+> The office has a **Replay** mode too, with the same clock and the same choice of the whole
+> project, the kickoff or a sprint: the characters walk to where the agents really were and say
+> what was really said (moves, progress notes, reviews, test reports and questions), each at
+> the moment it happened.
 
 ---
 

@@ -145,6 +145,51 @@ export interface AgentPresenceDTO {
   currentActivity: string | null;
 }
 
+/** A stretch of a project's history that can be replayed on its own. */
+export interface ReplaySegmentDTO {
+  /** `all`, `kickoff`, `sprint-<number>` or `latest` (since the last sprint or the kickoff). */
+  id: string;
+  label: string;
+  /** The sprint goal, for sprints. */
+  detail: string | null;
+  from: string;
+  /** When it ended, or null while it is still going on. */
+  to: string | null;
+}
+
+/** One row of the presence log: what an agent showed from this moment on. */
+export interface PresenceEntryDTO {
+  sessionId: string;
+  agentName: string;
+  userName: string | null;
+  at: string;
+  taskId: string | null;
+  taskKey: string | null;
+  roleKey: string | null;
+  ceremony: Ceremony | null;
+  activity: string | null;
+}
+
+/** Everything needed to replay one segment exactly as it happened. */
+export interface ReplayDTO {
+  segments: ReplaySegmentDTO[];
+  segment: ReplaySegmentDTO;
+  /**
+   * Every activity from the segment's start until now, newest first like the activity feed. Moves
+   * after the segment are needed too: the board at its start is rebuilt by undoing them.
+   */
+  events: ActivityDTO[];
+  /** Remarks written during the segment, oldest first (bodies shortened to what is spoken). */
+  remarks: RemarkDTO[];
+  /** Presence log rows of the segment (and the online window before it), oldest first. */
+  presence: PresenceEntryDTO[];
+  /** When the presence log starts for this project; earlier moments are inferred from events. */
+  presenceSince: string | null;
+  onlineWindowMinutes: number;
+  /** True when a size limit cut the data (very long histories), so the replay may be approximate. */
+  truncated: boolean;
+}
+
 /** One agent connection (MCP token) active on a project right now. */
 export interface OnlineAgentDTO {
   /** Agent session id; stable while the agent keeps working. */

@@ -17,8 +17,9 @@ asks, and can pause it at any time.
 - **Realtime:** cards move, glow while the agent works on them (labelled with its name, e.g.
   "Claude Code" or "Cursor"), and stream activity as it happens.
 - **Flow view:** the SDLC as a live, animated graph. Agents glide between stages, work items
-  travel along the paths, rework and escalations light up, and you can replay the whole history
-  or one item's journey with the time it spent in each stage.
+  travel along the paths, rework and escalations light up, and you can replay the whole history,
+  the kickoff or any single sprint on a real clock (exactly as recorded), or follow one item's
+  journey with the time it spent in each stage.
 - **Agent office:** the same live data as a pixel-art game, with one character per role (roles
   you add join the team). Agents play the characters of the roles they work in: they walk to
   their stations, talk about their work in speech bubbles and hand over to the next role. Idle

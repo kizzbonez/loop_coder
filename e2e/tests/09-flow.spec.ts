@@ -85,27 +85,47 @@ test('the Flow tab shows agents moving work through the SDLC live', async ({ pag
   await expect(panel.getByText('Shopping cart')).toBeVisible();
 });
 
-test('the history can be replayed, and an item followed on its journey', async ({ page }) => {
+test('the history replays on a real clock, sprint by sprint, and an item can be followed on its journey', async ({ page }) => {
   await page.goto(`/p/${projectId}/flow`);
   await page.getByRole('radio', { name: 'Replay' }).click();
   await expect(page).toHaveURL(/replay=all/);
   // At the start of the history the backlog was empty.
   await expect(stage(page, /^Backlog: 0 items/)).toBeVisible();
   const slider = page.getByRole('slider', { name: 'Replay position' });
-  const total = Number(await slider.getAttribute('max'));
-  expect(total).toBeGreaterThan(10);
-  await page.getByRole('button', { name: 'Step forward' }).click();
-  await page.getByRole('button', { name: 'Step forward' }).click();
+  const start = Number(await slider.getAttribute('min'));
+  const end = Number(await slider.getAttribute('max'));
+  expect(end).toBeGreaterThan(start);
+  await page.getByRole('button', { name: 'Next moment' }).click();
+  await page.getByRole('button', { name: 'Next moment' }).click();
   await expect(page.getByRole('heading', { name: 'Replayed events' })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Replay speed' }).selectOption('4');
+  // The agents' positions were recorded while they worked: the replay shows them exactly.
+  await expect(page.getByText(/inferred from their actions/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Claude Code · Project Manager/ })).toBeVisible();
+
+  // Real time: at 1× the clock moves one second per second.
+  const before = Number(await slider.inputValue());
+  await page.getByRole('combobox', { name: 'Replay speed' }).selectOption('1');
   await page.getByRole('button', { name: 'Play replay' }).click();
-  await expect(page.getByRole('button', { name: 'Pause replay' })).toBeVisible();
-  await page.waitForTimeout(1500);
-  await page.getByRole('button', { name: 'Pause replay' }).click();
-  expect(Number(await slider.inputValue())).toBeGreaterThan(2);
-  await slider.fill(String(total));
+  await page.waitForTimeout(1200);
+  const pause = page.getByRole('button', { name: 'Pause replay' });
+  if (await pause.isVisible()) await pause.click();
+  expect(Number(await slider.inputValue())).toBeGreaterThan(before);
+  await slider.fill(String(end));
   await expect(stage(page, /^Done: 1 item/)).toBeVisible();
   await shot(page, '71-flow-replay');
+
+  // Each part of the history has its own replay: the kickoff ends with the backlog it built.
+  const what = page.getByRole('combobox', { name: 'What to replay' });
+  await expect(what.locator('option')).toHaveText(['Whole project', 'Kickoff', 'Sprint 1 (ongoing)']);
+  await what.selectOption('kickoff');
+  await expect(page).toHaveURL(/replay=kickoff/);
+  await expect(stage(page, /^Backlog: 0 items/)).toBeVisible();
+  await slider.fill(await slider.getAttribute('max') ?? '0');
+  await expect(stage(page, /^Backlog: 3 items/)).toBeVisible();
+  await what.selectOption('sprint-1');
+  await expect(page).toHaveURL(/replay=sprint-1/);
+  // The sprint starts where the kickoff ended.
+  await expect(stage(page, /^Backlog: 3 items/)).toBeVisible();
 
   // Follow FLOW-1 from its details.
   await page.getByRole('radio', { name: 'Live' }).click();
