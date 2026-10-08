@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-08
+
 ### Changed
 
 - **The Software Engineer is now three developer roles.** The **Backend Developer** builds
